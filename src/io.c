@@ -14,6 +14,11 @@
 #define SNP_REF_COL 4
 #define SNP_ALT_COL 5
 
+#define IND_NUM_COLS 3
+#define IND_ID_COL 0
+#define IND_SEX_COL 1
+#define IND_POP_COL 2
+
 typedef struct {
 	size_t length;
 	char** var_id;
@@ -126,4 +131,35 @@ snp_data read_snp_file(char* filename) {
 	free(line);
 	fclose(fp);
 	return snp_info;
+}
+
+ind_data read_ind_file(char* filename) {
+	FILE *fp = fopen(filename, "r");
+	uint64_t num_inds = get_number_of_lines(filename);
+	char* line = NULL;
+	size_t size = 0;
+	ssize_t nread;
+	
+	ind_data ind_info = {
+		.length = num_inds,
+		.ind_id = (char**) malloc(num_inds * sizeof(char*)),
+		.sex = (char**) malloc(num_inds * sizeof(char*)),
+		.population = (char**) malloc(num_inds * sizeof(char*)),
+		.hash = 0
+	};
+
+	size_t idx = 0;
+	while((nread = getline(&line, &size, fp)) != -1) {
+		char** elems = get_column_elems(line, IND_NUM_COLS);
+		ind_info.ind_id[idx] = strdup(elems[IND_ID_COL]);
+		ind_info.sex[idx] = strdup(elems[IND_SEX_COL]);
+		ind_info.population[idx] = strdup(elems[IND_POP_COL]);
+		// calculate hash
+		ind_info.hash *= 17;
+		ind_info.hash = ind_info.hash ^ hash_str(ind_info.ind_id[idx]);
+		idx++;
+	}
+	free(line);
+	fclose(fp);
+	return ind_info;
 }
