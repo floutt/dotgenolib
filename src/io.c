@@ -19,6 +19,7 @@
 #define IND_SEX_COL 1
 #define IND_POP_COL 2
 
+/* BASIC TYPES */
 typedef struct {
 	size_t length;
 	char** var_id;
@@ -39,21 +40,47 @@ typedef struct {
 } ind_data;
 
 typedef struct {
-	size_t start;
-	size_t length;
-} col_pos;
+	bool is_hdr_read;
+	size_t idx;
+	size_t record_size;
+	FILE* fp;
+} pam_file;  // PACKEDANCESTRYMAP reader
 
+typedef struct {
+	size_t idx;
+	size_t record_size;
+	FILE* fp;
+} egn_file;  // EIGENSTRAT reader
+
+typedef struct {
+	size_t n_ind;
+	size_t n_snp;
+	uint32_t ind_hash;
+	uint32_t snp_hash;
+} hdr_data;
+
+/* BASIC FUNCTIONS */
 uint32_t hash_str(char* str) {
 	uint32_t hash_out = 0;
-	for(int i = 0; i < strlen(str); i++) {
+	size_t str_len = strlen(str);
+	for(int i = 0; i < str_len; i++) {
 		hash_out *= 23;
 		hash_out += str[i];
 	}
 	return(hash_out);
 }
 
+FILE* safe_read(char* filename, char* mode) {
+	FILE *fp = fopen(filename, mode);
+	if (fp == NULL) {
+		fprintf(stderr, "ERROR: cannot open file %s\n", filename);
+		exit(EXIT_FAILURE);
+	}
+	return fp;
+}
+
 size_t get_filesize(char* filename) {
-	FILE *fp = fopen(filename, "rb");
+	FILE *fp = safe_read(filename, "rb");
 	fseek(fp, 0, SEEK_END);
 	size_t file_size = ftell(fp);
 	fclose(fp);
@@ -62,14 +89,13 @@ size_t get_filesize(char* filename) {
 
 uint64_t get_number_of_lines(char* filename) {
 	uint64_t num_lines = 0;
-	FILE *fp = fopen(filename, "r");
+	FILE *fp = safe_read(filename, "r");
 	while(!feof(fp)) {
 		num_lines += (fgetc(fp) == '\n');
 	}
 	fclose(fp);
 	return num_lines;
 }
-
 
 char** get_column_elems(char* col_str, size_t ncol) {
 	char* cur_col = strtok(col_str, " \n\t\r");
@@ -80,7 +106,7 @@ char** get_column_elems(char* col_str, size_t ncol) {
 			if(strcmp(cur_col, "") == 0) {
 				return col_elems;
 			} else {
-				printf("ERROR: Too many columns in '.snp' or '.ind' file.\n");
+				fprintf(stderr, "ERROR: Too many columns in '.snp' or '.ind' file.\n");
 				exit(EXIT_FAILURE);
 			}
 		} else {
@@ -92,12 +118,13 @@ char** get_column_elems(char* col_str, size_t ncol) {
 	if (col_num == ncol) {
 		return col_elems;
 	} else {
-		printf("ERROR: Too few columns in '.snp' or '.ind' file.\n"); exit(EXIT_FAILURE);
+		fprintf(stderr, "ERROR: Too few columns in '.snp' or '.ind' file.\n");
+		exit(EXIT_FAILURE);
 	}
 }
 
 snp_data read_snp_file(char* filename) {
-	FILE *fp = fopen(filename, "r");
+	FILE *fp = safe_read(filename, "r");
 	uint64_t num_snps = get_number_of_lines(filename);
 	char* line = NULL;
 	size_t size = 0;
@@ -134,7 +161,7 @@ snp_data read_snp_file(char* filename) {
 }
 
 ind_data read_ind_file(char* filename) {
-	FILE *fp = fopen(filename, "r");
+	FILE *fp = safe_read(filename, "r");
 	uint64_t num_inds = get_number_of_lines(filename);
 	char* line = NULL;
 	size_t size = 0;
@@ -162,4 +189,39 @@ ind_data read_ind_file(char* filename) {
 	free(line);
 	fclose(fp);
 	return ind_info;
+}
+
+pam_file open_pam(char* filename, size_t n_snp) {
+	pam_file pf;
+	size_t file_size = get_filesize(filename);
+	pf.is_hdr_read = false;
+	pf.idx = 0;
+	pf.record_size = file_size / (n_snp + 1);
+	if ((pf.record_size * (n_snp+1)) != file_size) {
+		fprintf(stderr, "Invalid PACKEDANCESTRYMAP file. File size must be a multiple of the number of SNPs.\n");
+		exit(EXIT_FAILURE);
+	}
+	pf.fp = safe_read(filename, "rb");
+	return pf;
+}
+
+hdr_data read_pam_header(pam_file* pf) {
+	if(pf->is_hdr_read) {
+		fprintf(stderr, "Header already read!");
+		exit(EXIT_FAILURE);
+	}
+	hdr_data hdr_info;
+	char* hdr = (char*) malloc(sizeof(char) * pf->record_size);
+	fread(hdr, 1, pf->record_size, pf->fp);
+	sscanf(hdr, "GENO   %u %u %x %x", &hdr_info.n_ind, &hdr_info.n_snp, &hdr_info.ind_hash, &hdr_info.snp_hash);
+	free(hdr);
+	return hdr_info;
+}
+
+bool check_ind_hash(ind_data* ind_info, hdr_data* hdr_info) {
+	return ind_info->hash == hdr_info->ind_hash;
+}
+
+bool check_snp_hash(snp_data* snp_info, hdr_data* hdr_info) {
+	return snp_info->hash == hdr_info->ind_hash;
 }
