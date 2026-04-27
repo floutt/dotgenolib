@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <math.h>
 
 // macros
 #define SNP_NUM_COLS 6
@@ -18,6 +19,11 @@
 #define IND_ID_COL 0
 #define IND_SEX_COL 1
 #define IND_POP_COL 2
+
+#define BITS_IN_BYTE 8
+#define RECORD_ELEM_SIZE_BITS 2
+#define RECORD_ELEMS_PER_BYTE 4
+#define RECORD_ELEMS_MASK_BASE 3
 
 /* BASIC TYPES */
 typedef struct {
@@ -216,6 +222,22 @@ hdr_data read_pam_header(pam_file* pf) {
 	sscanf(hdr, "GENO   %u %u %x %x", &hdr_info.n_ind, &hdr_info.n_snp, &hdr_info.ind_hash, &hdr_info.snp_hash);
 	free(hdr);
 	return hdr_info;
+}
+
+uint8_t* read_pam_record(pam_file* pf, size_t n_ind) {
+	uint8_t* record = (uint8_t*)malloc(n_ind * size_of(uint8_t));
+	size_t idx = 0;
+	size_t num_leftover_bytes = pf->record_size - (int)ceil((float)(n_ind*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
+	uint8_t record_byte;
+	for(int i = 0; i < n_ind; i++) {
+		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE);
+		if(elem_pos == 0) {
+			record_byte = getc(pf->fp);
+		}
+		record[i] = ((RECORD_ELEMS_MASK_BASE << 2*elem_pos) & record_byte) >> (2*elem_pos);
+	}
+	fseek(pf->fp, num_leftover_bytes, SEEK_CUR);  // skip useless bytes
+	return record;
 }
 
 bool check_ind_hash(ind_data* ind_info, hdr_data* hdr_info) {
