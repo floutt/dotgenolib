@@ -221,20 +221,25 @@ hdr_data read_pam_header(pam_file* pf) {
 	fread(hdr, 1, pf->record_size, pf->fp);
 	sscanf(hdr, "GENO   %u %u %x %x", &hdr_info.n_ind, &hdr_info.n_snp, &hdr_info.ind_hash, &hdr_info.snp_hash);
 	free(hdr);
+	pf->is_hdr_read = true;
 	return hdr_info;
 }
 
 uint8_t* read_pam_record(pam_file* pf, size_t n_ind) {
-	uint8_t* record = (uint8_t*)malloc(n_ind * size_of(uint8_t));
-	size_t idx = 0;
+	if(!pf->is_hdr_read) {
+		fprintf(stderr, "Header must be read before reading records!\n");
+		exit(EXIT_FAILURE);
+	}
+	uint8_t* record = (uint8_t*)malloc(n_ind * sizeof(uint8_t));
 	size_t num_leftover_bytes = pf->record_size - (int)ceil((float)(n_ind*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
 	uint8_t record_byte;
 	for(int i = 0; i < n_ind; i++) {
-		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE);
+		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE;
+		uint8_t shift_by = (BITS_IN_BYTE-RECORD_ELEM_SIZE_BITS) - (RECORD_ELEM_SIZE_BITS*elem_pos);
 		if(elem_pos == 0) {
 			record_byte = getc(pf->fp);
 		}
-		record[i] = ((RECORD_ELEMS_MASK_BASE << 2*elem_pos) & record_byte) >> (2*elem_pos);
+		record[i] = (record_byte & (RECORD_ELEMS_MASK_BASE << shift_by)) >> shift_by;
 	}
 	fseek(pf->fp, num_leftover_bytes, SEEK_CUR);  // skip useless bytes
 	return record;
