@@ -25,6 +25,8 @@
 #define RECORD_ELEMS_PER_BYTE 4
 #define RECORD_ELEMS_MASK_BASE 3
 
+#define NAN_DOSAGE 3
+
 /* BASIC TYPES */
 typedef struct {
 	size_t length;
@@ -47,14 +49,17 @@ typedef struct {
 
 typedef struct {
 	bool is_hdr_read;
+	bool is_open;
 	size_t idx;
 	size_t record_size;
+	size_t n_ind;
 	FILE* fp;
 } pam_file;  // PACKEDANCESTRYMAP reader
 
 typedef struct {
+	bool is_open;
 	size_t idx;
-	size_t record_size;
+	size_t n_ind;
 	FILE* fp;
 } egn_file;  // EIGENSTRAT reader
 
@@ -77,7 +82,7 @@ uint32_t hash_str(char* str) {
 }
 
 FILE* safe_read(char* filename, char* mode) {
-	FILE *fp = fopen(filename, mode);
+	FILE* fp = fopen(filename, mode);
 	if (fp == NULL) {
 		fprintf(stderr, "ERROR: cannot open file %s\n", filename);
 		exit(EXIT_FAILURE);
@@ -86,7 +91,7 @@ FILE* safe_read(char* filename, char* mode) {
 }
 
 size_t get_filesize(char* filename) {
-	FILE *fp = safe_read(filename, "rb");
+	FILE* fp = safe_read(filename, "rb");
 	fseek(fp, 0, SEEK_END);
 	size_t file_size = ftell(fp);
 	fclose(fp);
@@ -95,7 +100,7 @@ size_t get_filesize(char* filename) {
 
 uint64_t get_number_of_lines(char* filename) {
 	uint64_t num_lines = 0;
-	FILE *fp = safe_read(filename, "r");
+	FILE* fp = safe_read(filename, "r");
 	while(!feof(fp)) {
 		num_lines += (fgetc(fp) == '\n');
 	}
@@ -130,7 +135,7 @@ char** get_column_elems(char* col_str, size_t ncol) {
 }
 
 snp_data read_snp_file(char* filename) {
-	FILE *fp = safe_read(filename, "r");
+	FILE* fp = safe_read(filename, "r");
 	uint64_t num_snps = get_number_of_lines(filename);
 	char* line = NULL;
 	size_t size = 0;
@@ -167,7 +172,7 @@ snp_data read_snp_file(char* filename) {
 }
 
 ind_data read_ind_file(char* filename) {
-	FILE *fp = safe_read(filename, "r");
+	FILE* fp = safe_read(filename, "r");
 	uint64_t num_inds = get_number_of_lines(filename);
 	char* line = NULL;
 	size_t size = 0;
@@ -197,13 +202,15 @@ ind_data read_ind_file(char* filename) {
 	return ind_info;
 }
 
-pam_file open_pam(char* filename, size_t n_snp) {
+pam_file open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pam_file pf;
 	size_t file_size = get_filesize(filename);
 	pf.is_hdr_read = false;
+	pf.is_open = true;
 	pf.idx = 0;
-	pf.record_size = file_size / (n_snp + 1);
-	if ((pf.record_size * (n_snp+1)) != file_size) {
+	pf.n_ind = ind_info->length;
+	pf.record_size = file_size / (snp_info->length + 1);
+	if ((pf.record_size * (snp_info->length + 1)) != file_size) {
 		fprintf(stderr, "Invalid PACKEDANCESTRYMAP file. File size must be a multiple of the number of SNPs.\n");
 		exit(EXIT_FAILURE);
 	}
@@ -211,9 +218,37 @@ pam_file open_pam(char* filename, size_t n_snp) {
 	return pf;
 }
 
+egn_file open_egn(char* filename, snp_data* snp_info, ind_data* ind_info) {
+	egn_file ef;
+	ef.is_open = true;
+	ef.n_ind = ind_info->length;
+	size_t file_size = get_filesize(filename);
+	ef.idx = 0;
+	if (((ind_info->length + 1) * snp_info->length) != file_size) {
+		fprintf(stderr, "ERROR: Invalid EIGENSTRAT file. Expected file of size %u bytes.\n", (ind_info->length + 1) * snp_info->length);
+		exit(EXIT_FAILURE);
+	}
+	ef.fp = safe_read(filename, "rb");
+	return ef;
+}
+
+int close_pam_file(pam_file* pf) {
+	pf->is_open = false;
+	return fclose(pf->fp);
+}
+
+int close_egn_file(egn_file* ef) {
+	ef->is_open = false;
+	return fclose(ef->fp);
+}
+
 hdr_data read_pam_header(pam_file* pf) {
 	if(pf->is_hdr_read) {
 		fprintf(stderr, "Header already read!");
+		exit(EXIT_FAILURE);
+	}
+	if(!pf->is_open) {
+		fprintf(stderr, "ERROR: pam_file has been closed.");
 		exit(EXIT_FAILURE);
 	}
 	hdr_data hdr_info;
@@ -225,15 +260,22 @@ hdr_data read_pam_header(pam_file* pf) {
 	return hdr_info;
 }
 
-uint8_t* read_pam_record(pam_file* pf, size_t n_ind) {
+uint8_t* read_pam_record(pam_file* pf) {
 	if(!pf->is_hdr_read) {
 		fprintf(stderr, "Header must be read before reading records!\n");
 		exit(EXIT_FAILURE);
 	}
-	uint8_t* record = (uint8_t*)malloc(n_ind * sizeof(uint8_t));
-	size_t num_leftover_bytes = pf->record_size - (int)ceil((float)(n_ind*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
+	if(!pf->is_open) {
+		fprintf(stderr, "ERROR: pam_file has been closed.");
+		exit(EXIT_FAILURE);
+	}
+	if(pf->idx == pf->n_ind) {
+		return NULL;
+	}
+	uint8_t* record = (uint8_t*)malloc(pf->n_ind * sizeof(uint8_t));
+	size_t num_leftover_bytes = pf->record_size - (int)ceil((float)(pf->n_ind*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
 	uint8_t record_byte;
-	for(int i = 0; i < n_ind; i++) {
+	for(int i = 0; i < pf->n_ind; i++) {
 		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE;
 		uint8_t shift_by = (BITS_IN_BYTE-RECORD_ELEM_SIZE_BITS) - (RECORD_ELEM_SIZE_BITS*elem_pos);
 		if(elem_pos == 0) {
@@ -241,7 +283,37 @@ uint8_t* read_pam_record(pam_file* pf, size_t n_ind) {
 		}
 		record[i] = (record_byte & (RECORD_ELEMS_MASK_BASE << shift_by)) >> shift_by;
 	}
+	pf->idx += 1;
 	fseek(pf->fp, num_leftover_bytes, SEEK_CUR);  // skip useless bytes
+	return record;
+}
+
+uint8_t* read_egn_record(egn_file* ef) {
+	if(!ef->is_open) {
+		fprintf(stderr, "ERROR: egn_file has been closed.");
+		exit(EXIT_FAILURE);
+	}
+	if(ef->idx == ef->n_ind) {
+		return NULL;
+	}
+	uint8_t* record = (uint8_t*)malloc(ef->n_ind * sizeof(uint8_t));
+	char* line = NULL;
+	size_t size = 0;
+	ssize_t nread = getline(&line, &size, ef->fp);
+	if (nread != (ef->n_ind+1)) {
+		fprintf(stderr, "ERROR: improperly formatted EIGENSTRAT geno file. Expected %u entries in line, got % u.", ef->n_ind+1, nread);
+		exit(EXIT_FAILURE);
+	}
+	for(int i = 0; i < ef->n_ind; i++) {
+		// check if valid character
+		if(!((line[i] == '0') || (line[i] == '1') || (line[i] == '2') || (line[i] == '9'))) {
+			fprintf(stderr, "ERROR: characters must be '0', '1', '2', or '9'.\n");
+			exit(EXIT_FAILURE);
+		}
+		record[i] = ((line[i] == '0') * 0) + ((line[i] == '1') * 1) + ((line[i] == '2') * 2) + ((line[i] == '9') * NAN_DOSAGE);
+	}
+	free(line);
+	ef->idx += 1;
 	return record;
 }
 
