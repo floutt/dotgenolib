@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <math.h>
+#include "khash.h"
 
 // macros
 #define SNP_NUM_COLS 6
@@ -27,6 +28,43 @@
 
 #define NAN_DOSAGE 3
 
+// String linker for .ind files
+char IND_LINK[20] = "gzvrEy55bcEN0gqRqvL6";
+#define IND_LINK_LEN 20
+
+typedef struct {
+	char* ind_id;
+	char* ind_pop;
+} ind_idx;
+
+// djb2 based hash
+khint_t hash_ind_idx(ind_idx ind_idx_struct) {
+	khint_t hash = 5381;
+	
+	// first string
+	int len = strlen(ind_idx_struct.ind_id);
+	for(int i = 0; i < len; i++) {
+		hash = ((hash << 5) + hash) + ind_idx_struct.ind_id[i];
+	}
+	
+	// linker string
+	for(int i = 0; i < IND_LINK_LEN; i++) {
+		hash = ((hash << 5) + hash) + IND_LINK[i];
+	}
+
+	// second string
+	len = strlen(ind_idx_struct.ind_pop);
+	for(int i = 0; i < len; i++) {
+		hash = ((hash << 5) + hash) + ind_idx_struct.ind_pop[i];
+	}
+	return hash;
+}
+
+#define ind_idx_equal(a, b) ((strcmp((a).ind_id, (b).ind_id) == 0) && strcmp((a).ind_pop, (b).ind_pop) == 0)
+// initialize hash table type
+KHASH_MAP_INIT_STR(ID_MAP_STR, size_t)
+KHASH_INIT(ID_MAP_IND, ind_idx, size_t, true, hash_ind_idx, ind_idx_equal)
+
 /* BASIC TYPES */
 typedef struct {
 	size_t length;
@@ -36,6 +74,7 @@ typedef struct {
 	uint64_t* pos;
 	char** ref;
 	char** alt;
+	khash_t(ID_MAP_STR)* rev_idx;
 	uint32_t hash;
 } snp_data;
 
@@ -44,6 +83,7 @@ typedef struct {
 	char** ind_id;
 	char** sex;
 	char** population;
+	khash_t(ID_MAP_IND)* rev_idx;
 	uint32_t hash;
 } ind_data;
 
@@ -149,6 +189,7 @@ snp_data read_snp_file(char* filename) {
 		.pos = (uint64_t*) malloc(num_snps * sizeof(uint64_t)),
 		.ref = (char**) malloc(num_snps * sizeof(char*)),
 		.alt = (char**) malloc(num_snps * sizeof(char*)),
+		.rev_idx = kh_init(ID_MAP_STR),
 		.hash = 0
 	};
 
@@ -164,6 +205,16 @@ snp_data read_snp_file(char* filename) {
 		// calculate hash
 		snp_info.hash *= 17;
 		snp_info.hash = snp_info.hash ^ hash_str(snp_info.var_id[idx]);
+		int ret;
+		khiter_t k = kh_put(ID_MAP_STR, snp_info.rev_idx, snp_info.var_id[idx], &ret);
+		if(ret == -1) {
+			fprintf(stderr, "Error: Failed to insert variant name into hash table!\n");
+			exit(EXIT_FAILURE);
+		} else if(ret == 0) {
+			fprintf(stderr, "Error: Multiple instances of variant %s found in the .snp file.\n", snp_info.var_id[idx]);
+			exit(EXIT_FAILURE);
+		}
+		kh_value(snp_info.rev_idx, k) = idx;
 		idx++;
 	}
 	free(line);
@@ -183,6 +234,7 @@ ind_data read_ind_file(char* filename) {
 		.ind_id = (char**) malloc(num_inds * sizeof(char*)),
 		.sex = (char**) malloc(num_inds * sizeof(char*)),
 		.population = (char**) malloc(num_inds * sizeof(char*)),
+		.rev_idx = kh_init(ID_MAP_IND),
 		.hash = 0
 	};
 
@@ -195,6 +247,17 @@ ind_data read_ind_file(char* filename) {
 		// calculate hash
 		ind_info.hash *= 17;
 		ind_info.hash = ind_info.hash ^ hash_str(ind_info.ind_id[idx]);
+		int ret;
+		ind_idx ind_idx_struct = (ind_idx){ind_info.ind_id[idx], ind_info.population[idx]};
+		khiter_t k = kh_put(ID_MAP_IND, ind_info.rev_idx, ind_idx_struct, &ret);
+		if(ret == -1) {
+			fprintf(stderr, "Error: Failed to insert individual into hash table!\n");
+			exit(EXIT_FAILURE);
+		} else if(ret == 0) {
+			fprintf(stderr, "Error: Multiple instances of individual (%s, %s) found in the .snp file.\n", ind_info.ind_id[idx], ind_info.population[idx]);
+			exit(EXIT_FAILURE);
+		}
+		kh_value(ind_info.rev_idx, k) = idx;
 		idx++;
 	}
 	free(line);
