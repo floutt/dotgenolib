@@ -93,6 +93,7 @@ typedef struct {
 	size_t idx;
 	size_t record_size;
 	size_t n_ind;
+	size_t n_snp;
 	FILE* fp;
 } pam_file;  // PACKEDANCESTRYMAP reader
 
@@ -100,6 +101,7 @@ typedef struct {
 	bool is_open;
 	size_t idx;
 	size_t n_ind;
+	size_t n_snp;
 	FILE* fp;
 } egn_file;  // EIGENSTRAT reader
 
@@ -272,6 +274,7 @@ pam_file open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pf.is_open = true;
 	pf.idx = 0;
 	pf.n_ind = ind_info->length;
+	pf.n_snp = snp_info->length;
 	pf.record_size = file_size / (snp_info->length + 1);
 	if ((pf.record_size * (snp_info->length + 1)) != file_size) {
 		fprintf(stderr, "Invalid PACKEDANCESTRYMAP file. File size must be a multiple of the number of SNPs.\n");
@@ -285,6 +288,7 @@ egn_file open_egn(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	egn_file ef;
 	ef.is_open = true;
 	ef.n_ind = ind_info->length;
+	ef.n_snp = snp_info->length;
 	size_t file_size = get_filesize(filename);
 	ef.idx = 0;
 	if (((ind_info->length + 1) * snp_info->length) != file_size) {
@@ -332,7 +336,7 @@ uint8_t* read_pam_record(pam_file* pf) {
 		fprintf(stderr, "ERROR: pam_file has been closed.");
 		exit(EXIT_FAILURE);
 	}
-	if(pf->idx == pf->n_ind) {
+	if(pf->idx == pf->n_snp) {
 		return NULL;
 	}
 	uint8_t* record = (uint8_t*)malloc(pf->n_ind * sizeof(uint8_t));
@@ -356,7 +360,7 @@ uint8_t* read_egn_record(egn_file* ef) {
 		fprintf(stderr, "ERROR: egn_file has been closed.");
 		exit(EXIT_FAILURE);
 	}
-	if(ef->idx == ef->n_ind) {
+	if(ef->idx == ef->n_snp) {
 		return NULL;
 	}
 	uint8_t* record = (uint8_t*)malloc(ef->n_ind * sizeof(uint8_t));
@@ -378,6 +382,40 @@ uint8_t* read_egn_record(egn_file* ef) {
 	free(line);
 	ef->idx += 1;
 	return record;
+}
+
+void goto_var_egn(egn_file* ef, snp_data* snp_info, char* var_name) {
+	if(!ef->is_open) {
+		fprintf(stderr, "ERROR: egn_file closed.\n");
+		exit(EXIT_FAILURE);
+	}
+	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx, var_name);
+	if(k == kh_end(snp_info->rev_idx)) {
+		fprintf(stderr, "ERROR: variant %s is not in the .snp file!\n", var_name);
+		exit(EXIT_FAILURE);
+	}
+	size_t idx_go = kh_value(snp_info->rev_idx, k);
+	fseek(ef->fp, idx_go * (ef->n_ind+1), SEEK_SET);
+	ef->idx = idx_go;
+}
+
+void goto_var_pam(pam_file* pf, snp_data* snp_info, char* var_name) {
+	if(!pf->is_open) {
+		fprintf(stderr, "ERROR: pam_file closed.\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!pf->is_hdr_read) {
+		fprintf(stderr, "ERROR: header must be read before going to variant.\n");
+		exit(EXIT_FAILURE);	
+	}
+	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx, var_name);
+	if(k == kh_end(snp_info->rev_idx)) {
+		fprintf(stderr, "ERROR: variant %s is not in the .snp file!\n", var_name);
+		exit(EXIT_FAILURE);
+	}
+	size_t idx_go = kh_value(snp_info->rev_idx, k);
+	fseek(pf->fp, (idx_go + 1) * (pf->record_size), SEEK_SET);
+	pf->idx = idx_go;
 }
 
 bool check_ind_hash(ind_data* ind_info, hdr_data* hdr_info) {
