@@ -207,6 +207,7 @@ snp_data read_snp_file(char* filename) {
 		// calculate hash
 		snp_info.hash *= 17;
 		snp_info.hash = snp_info.hash ^ hash_str(snp_info.var_id[idx]);
+		free(elems);
 		int ret;
 		khiter_t k = kh_put(ID_MAP_STR, snp_info.rev_idx, snp_info.var_id[idx], &ret);
 		if(ret == -1) {
@@ -246,6 +247,7 @@ ind_data read_ind_file(char* filename) {
 		ind_info.ind_id[idx] = strdup(elems[IND_ID_COL]);
 		ind_info.sex[idx] = strdup(elems[IND_SEX_COL]);
 		ind_info.population[idx] = strdup(elems[IND_POP_COL]);
+		free(elems);
 		// calculate hash
 		ind_info.hash *= 17;
 		ind_info.hash = ind_info.hash ^ hash_str(ind_info.ind_id[idx]);
@@ -424,4 +426,9 @@ bool check_ind_hash(ind_data* ind_info, hdr_data* hdr_info) {
 
 bool check_snp_hash(snp_data* snp_info, hdr_data* hdr_info) {
 	return snp_info->hash == hdr_info->ind_hash;
+}
+
+void main(int argc, char* argv[]) {
+	ind_data ind_info = read_ind_file(argv[1]);
+	snp_data snp_info = read_snp_file(argv[2]);
 }
