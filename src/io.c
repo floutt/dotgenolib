@@ -420,15 +420,34 @@ void goto_var_pam(pam_file* pf, snp_data* snp_info, char* var_name) {
 	pf->idx = idx_go;
 }
 
+void free_str_array(char** arr, size_t length) {
+	for(int i = 0; i < length; i++) {
+		free(arr[i]);
+	}
+	free(arr);
+}
+
+void free_snp_data(snp_data* snp_info) {
+	free_str_array(snp_info->var_id, snp_info->length);
+	free_str_array(snp_info->chr, snp_info->length);
+	free(snp_info->cm);
+	free(snp_info->pos);
+	free_str_array(snp_info->ref, snp_info->length);
+	free_str_array(snp_info->alt, snp_info->length);
+	kh_destroy(ID_MAP_STR, snp_info->rev_idx);
+}
+
+void free_ind_data(ind_data* ind_info) {
+	free_str_array(ind_info->ind_id, ind_info->length);
+	free_str_array(ind_info->sex, ind_info->length);
+	free_str_array(ind_info->population, ind_info->length);
+	kh_destroy(ID_MAP_IND, ind_info->rev_idx);
+}
+
 bool check_ind_hash(ind_data* ind_info, hdr_data* hdr_info) {
 	return ind_info->hash == hdr_info->ind_hash;
 }
 
 bool check_snp_hash(snp_data* snp_info, hdr_data* hdr_info) {
 	return snp_info->hash == hdr_info->ind_hash;
-}
-
-void main(int argc, char* argv[]) {
-	ind_data ind_info = read_ind_file(argv[1]);
-	snp_data snp_info = read_snp_file(argv[2]);
 }
