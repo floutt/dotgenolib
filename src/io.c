@@ -269,6 +269,29 @@ ind_data read_ind_file(char* filename) {
 	return ind_info;
 }
 
+short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx) {
+	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx, var_name);
+	if(k == kh_end(snp_info->rev_idx)) {
+		return -1;
+	} else {
+		*idx = kh_value(snp_info->rev_idx, k);
+		return 1;
+	}
+}
+
+short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) {
+	ind_idx iidx;
+	iidx.ind_id = ind_id;
+	iidx.ind_pop = ind_pop; 
+	khint_t k = kh_get(ID_MAP_IND, ind_info->rev_idx, iidx);
+	if(k == kh_end(ind_info->rev_idx)) {
+		return -1;
+	} else {
+		*idx = kh_value(ind_info->rev_idx, k);
+		return 1;
+	}
+}
+
 pam_file open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pam_file pf;
 	size_t file_size = get_filesize(filename);
