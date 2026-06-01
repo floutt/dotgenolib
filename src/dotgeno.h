@@ -83,7 +83,7 @@ typedef struct {
 	size_t length; /**< Total number of elements for each array in struct */
 	char** var_id; /**< Array of variant identifiers */
 	char** chr; /**< Array of chromosomes of variants */
-	double* cm; /**< Array of genetic positions in Morgans */
+	double* pos_morgans; /**< Array of genetic positions in Morgans */
 	uint64_t* pos; /**< Array of genetic base pair positions */
 	char** ref; /**< Array of reference alleles */
 	char** alt; /**< Array of alternative alleles */ 
@@ -154,6 +154,30 @@ snp_data read_snp_file(char* filename);
  *  @return ind_data struct containing information from .ind file
  */ 
 ind_data read_ind_file(char* filename);
+
+/**
+ * @brief writes contents of snp_data object to file
+ *
+ * @param[in] snp_info pointer to snp_data object
+ * @param[in] filename path to output file
+ *
+ * @return status code indicating whether or not file was successfully read and closed
+ * @retval 0 not successfully closed 
+ * @retval EOF file not successfully closed
+ */
+short write_snp_data(snp_data* snp_info, char* filename);
+
+/**
+ * @brief writes contents of ind_data object to file
+ *
+ * @param[in] ind_info pointer to ind_data object
+ * @param[in] filename path to output file
+ *
+ * @return status code indicating whether or not file was successfully read and closed
+ * @retval 0 not successfully closed 
+ * @retval EOF file not successfully closed
+ */
+short write_ind_data(ind_data* ind_info, char* filename);
 
 /**
  * @brief gets the index for snp with the identifier var_name

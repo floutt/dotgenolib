@@ -92,7 +92,7 @@ snp_data read_snp_file(char* filename) {
 		.length = num_snps,
 		.var_id = (char**) malloc(num_snps * sizeof(char*)),
 		.chr = (char**) malloc(num_snps * sizeof(char*)),
-		.cm = (double*) malloc(num_snps * sizeof(double)),
+		.pos_morgans = (double*) malloc(num_snps * sizeof(double)),
 		.pos = (uint64_t*) malloc(num_snps * sizeof(uint64_t)),
 		.ref = (char**) malloc(num_snps * sizeof(char*)),
 		.alt = (char**) malloc(num_snps * sizeof(char*)),
@@ -105,7 +105,7 @@ snp_data read_snp_file(char* filename) {
 		char** elems = get_column_elems(line, SNP_NUM_COLS);
 		snp_info.var_id[idx] = strdup(elems[SNP_VAR_COL]);
 		snp_info.chr[idx] = strdup(elems[SNP_CHR_COL]);
-		sscanf(elems[SNP_CM_COL], "%lf", &snp_info.cm[idx]);
+		sscanf(elems[SNP_CM_COL], "%lf", &snp_info.pos_morgans[idx]);
 		snp_info.pos[idx] = atoi(elems[SNP_POS_COL]);
 		snp_info.ref[idx] = strdup(elems[SNP_REF_COL]);
 		snp_info.alt[idx] = strdup(elems[SNP_ALT_COL]);
@@ -172,6 +172,24 @@ ind_data read_ind_file(char* filename) {
 	free(line);
 	fclose(fp);
 	return ind_info;
+}
+
+short write_snp_data(snp_data* snp_info, char* filename) {
+	FILE* fp = safe_read(filename, "w+");
+	for(size_t i = 0; i < snp_info->length; i++) {
+		fprintf(fp, "%s\t%s\t%lf\t%zu\t%s\t%s\n",
+				snp_info->var_id[i], snp_info->chr[i], snp_info->pos_morgans[i], snp_info->pos[i], snp_info->ref[i], snp_info->alt[i]);
+	}
+	return fclose(fp);
+}
+
+short write_ind_data(ind_data* ind_info, char* filename) {
+	FILE* fp = safe_read(filename, "w+");
+	for(size_t i = 0; i < ind_info->length; i++) {
+		fprintf(fp, "%s\t%s\t%s\n",
+				ind_info->ind_id[i], ind_info->sex[i], ind_info->population[i]);
+	}
+	return fclose(fp);
 }
 
 short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx) {
@@ -358,7 +376,7 @@ void free_str_array(char** arr, size_t length) {
 void free_snp_data(snp_data* snp_info) {
 	free_str_array(snp_info->var_id, snp_info->length);
 	free_str_array(snp_info->chr, snp_info->length);
-	free(snp_info->cm);
+	free(snp_info->pos_morgans);
 	free(snp_info->pos);
 	free_str_array(snp_info->ref, snp_info->length);
 	free_str_array(snp_info->alt, snp_info->length);
