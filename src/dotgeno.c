@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include "khash.h"
-#include "io.h"
+#include "dotgeno.h"
 
 // macros
 #define SNP_NUM_COLS 6
