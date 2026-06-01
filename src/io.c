@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include "khash.h"
+#include "io.h"
 
 // macros
 #define SNP_NUM_COLS 6
@@ -26,103 +27,7 @@
 #define RECORD_ELEMS_PER_BYTE 4
 #define RECORD_ELEMS_MASK_BASE 3
 
-#define NAN_DOSAGE 3
-
-// String linker for .ind files
-char IND_LINK[20] = "gzvrEy55bcEN0gqRqvL6";
-#define IND_LINK_LEN 20
-
-typedef struct {
-	char* ind_id;
-	char* ind_pop;
-} ind_idx;
-
-// djb2 based hash
-khint_t hash_ind_idx(ind_idx ind_idx_struct) {
-	khint_t hash = 5381;
-	
-	// first string
-	int len = strlen(ind_idx_struct.ind_id);
-	for(int i = 0; i < len; i++) {
-		hash = ((hash << 5) + hash) + ind_idx_struct.ind_id[i];
-	}
-	
-	// linker string
-	for(int i = 0; i < IND_LINK_LEN; i++) {
-		hash = ((hash << 5) + hash) + IND_LINK[i];
-	}
-
-	// second string
-	len = strlen(ind_idx_struct.ind_pop);
-	for(int i = 0; i < len; i++) {
-		hash = ((hash << 5) + hash) + ind_idx_struct.ind_pop[i];
-	}
-	return hash;
-}
-
-#define ind_idx_equal(a, b) ((strcmp((a).ind_id, (b).ind_id) == 0) && strcmp((a).ind_pop, (b).ind_pop) == 0)
-// initialize hash table type
-KHASH_MAP_INIT_STR(ID_MAP_STR, size_t)
-KHASH_INIT(ID_MAP_IND, ind_idx, size_t, true, hash_ind_idx, ind_idx_equal)
-
-/* BASIC TYPES */
-typedef struct {
-	size_t length;
-	char** var_id;
-	char** chr;
-	double* cm;
-	uint64_t* pos;
-	char** ref;
-	char** alt;
-	khash_t(ID_MAP_STR)* rev_idx;
-	uint32_t hash;
-} snp_data;
-
-typedef struct {
-	size_t length;
-	char** ind_id;
-	char** sex;
-	char** population;
-	khash_t(ID_MAP_IND)* rev_idx;
-	uint32_t hash;
-} ind_data;
-
-typedef struct {
-	bool is_hdr_read;
-	bool is_open;
-	size_t idx;
-	size_t record_size;
-	size_t n_ind;
-	size_t n_snp;
-	FILE* fp;
-} pam_file;  // PACKEDANCESTRYMAP reader
-
-typedef struct {
-	bool is_open;
-	size_t idx;
-	size_t n_ind;
-	size_t n_snp;
-	FILE* fp;
-} egn_file;  // EIGENSTRAT reader
-
-typedef struct {
-	size_t n_ind;
-	size_t n_snp;
-	uint32_t ind_hash;
-	uint32_t snp_hash;
-} hdr_data;
-
 /* BASIC FUNCTIONS */
-uint32_t hash_str(char* str) {
-	uint32_t hash_out = 0;
-	size_t str_len = strlen(str);
-	for(int i = 0; i < str_len; i++) {
-		hash_out *= 23;
-		hash_out += str[i];
-	}
-	return(hash_out);
-}
-
 FILE* safe_read(char* filename, char* mode) {
 	FILE* fp = fopen(filename, mode);
 	if (fp == NULL) {
@@ -275,7 +180,7 @@ short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx) {
 		return -1;
 	} else {
 		*idx = kh_value(snp_info->rev_idx, k);
-		return 1;
+		return 0;
 	}
 }
 
@@ -288,7 +193,7 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) 
 		return -1;
 	} else {
 		*idx = kh_value(ind_info->rev_idx, k);
-		return 1;
+		return 0;
 	}
 }
 
@@ -402,7 +307,7 @@ uint8_t* read_egn_record(egn_file* ef) {
 			fprintf(stderr, "ERROR: characters must be '0', '1', '2', or '9'.\n");
 			exit(EXIT_FAILURE);
 		}
-		record[i] = ((line[i] == '0') * 0) + ((line[i] == '1') * 1) + ((line[i] == '2') * 2) + ((line[i] == '9') * NAN_DOSAGE);
+		record[i] = ((line[i] == '0') * 0) + ((line[i] == '1') * 1) + ((line[i] == '2') * 2) + ((line[i] == '9') * NAN_VAL);
 	}
 	free(line);
 	ef->idx += 1;
@@ -465,12 +370,4 @@ void free_ind_data(ind_data* ind_info) {
 	free_str_array(ind_info->sex, ind_info->length);
 	free_str_array(ind_info->population, ind_info->length);
 	kh_destroy(ID_MAP_IND, ind_info->rev_idx);
-}
-
-bool check_ind_hash(ind_data* ind_info, hdr_data* hdr_info) {
-	return ind_info->hash == hdr_info->ind_hash;
-}
-
-bool check_snp_hash(snp_data* snp_info, hdr_data* hdr_info) {
-	return snp_info->hash == hdr_info->ind_hash;
 }
