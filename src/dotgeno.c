@@ -215,8 +215,8 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) 
 	}
 }
 
-pam_file open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
-	pam_file pf;
+pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
+	pam_file_reader pf;
 	size_t file_size = get_filesize(filename);
 	pf.is_hdr_read = false;
 	pf.is_open = true;
@@ -232,8 +232,8 @@ pam_file open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	return pf;
 }
 
-egn_file open_egn(char* filename, snp_data* snp_info, ind_data* ind_info) {
-	egn_file ef;
+egn_file_reader open_egn(char* filename, snp_data* snp_info, ind_data* ind_info) {
+	egn_file_reader ef;
 	ef.is_open = true;
 	ef.n_ind = ind_info->length;
 	ef.n_snp = snp_info->length;
@@ -247,23 +247,23 @@ egn_file open_egn(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	return ef;
 }
 
-int close_pam_file(pam_file* pf) {
+int close_pam_file_reader(pam_file_reader* pf) {
 	pf->is_open = false;
 	return fclose(pf->fp);
 }
 
-int close_egn_file(egn_file* ef) {
+int close_egn_file_reader(egn_file_reader* ef) {
 	ef->is_open = false;
 	return fclose(ef->fp);
 }
 
-hdr_data read_pam_header(pam_file* pf) {
+hdr_data read_pam_header(pam_file_reader* pf) {
 	if(pf->is_hdr_read) {
 		fprintf(stderr, "Header already read!");
 		exit(EXIT_FAILURE);
 	}
 	if(!pf->is_open) {
-		fprintf(stderr, "ERROR: pam_file has been closed.");
+		fprintf(stderr, "ERROR: pam_file_reader has been closed.");
 		exit(EXIT_FAILURE);
 	}
 	hdr_data hdr_info;
@@ -275,13 +275,13 @@ hdr_data read_pam_header(pam_file* pf) {
 	return hdr_info;
 }
 
-uint8_t* read_pam_record(pam_file* pf) {
+uint8_t* read_pam_record(pam_file_reader* pf) {
 	if(!pf->is_hdr_read) {
 		fprintf(stderr, "Header must be read before reading records!\n");
 		exit(EXIT_FAILURE);
 	}
 	if(!pf->is_open) {
-		fprintf(stderr, "ERROR: pam_file has been closed.");
+		fprintf(stderr, "ERROR: pam_file_reader has been closed.");
 		exit(EXIT_FAILURE);
 	}
 	if(pf->idx == pf->n_snp) {
@@ -303,9 +303,9 @@ uint8_t* read_pam_record(pam_file* pf) {
 	return record;
 }
 
-uint8_t* read_egn_record(egn_file* ef) {
+uint8_t* read_egn_record(egn_file_reader* ef) {
 	if(!ef->is_open) {
-		fprintf(stderr, "ERROR: egn_file has been closed.");
+		fprintf(stderr, "ERROR: egn_file_reader has been closed.");
 		exit(EXIT_FAILURE);
 	}
 	if(ef->idx == ef->n_snp) {
@@ -332,9 +332,9 @@ uint8_t* read_egn_record(egn_file* ef) {
 	return record;
 }
 
-void goto_var_egn(egn_file* ef, snp_data* snp_info, char* var_name) {
+void goto_var_egn(egn_file_reader* ef, snp_data* snp_info, char* var_name) {
 	if(!ef->is_open) {
-		fprintf(stderr, "ERROR: egn_file closed.\n");
+		fprintf(stderr, "ERROR: egn_file_reader closed.\n");
 		exit(EXIT_FAILURE);
 	}
 	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx, var_name);
@@ -347,9 +347,9 @@ void goto_var_egn(egn_file* ef, snp_data* snp_info, char* var_name) {
 	ef->idx = idx_go;
 }
 
-void goto_var_pam(pam_file* pf, snp_data* snp_info, char* var_name) {
+void goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name) {
 	if(!pf->is_open) {
-		fprintf(stderr, "ERROR: pam_file closed.\n");
+		fprintf(stderr, "ERROR: pam_file_reader closed.\n");
 		exit(EXIT_FAILURE);
 	}
 	if(!pf->is_hdr_read) {

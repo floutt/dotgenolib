@@ -114,7 +114,7 @@ typedef struct {
 	size_t n_ind; /**< Number of individuals in the file */
 	size_t n_snp; /**< Number of genetic variants in the file */
 	FILE* fp;  /**< File pointer to PACKEDANCESTRYMAP file */ 
-} pam_file;
+} pam_file_reader;
 
 /*! @typedef
  * @brief struct containing information necessary to read EIGENSTRAT files
@@ -125,7 +125,7 @@ typedef struct {
 	size_t n_ind; /**< Number of individuals in the file */
 	size_t n_snp; /**< Number of genetic variants in the file */  
 	FILE* fp; /**< File pointer to EIGENSTRAT file */
-} egn_file;
+} egn_file_reader;
 
 /*! @typedef
  * @brief struct containing information encoded in PACKEDANCESTRYMAP file headers
@@ -215,7 +215,7 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx);
  *
  * @return object with file pointer and information necessary to read PACKEDANCESTRYMAP file 
  */
-pam_file open_pam(char* filename, snp_data* snp_info, ind_data* ind_info);
+pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
  * @brief opens a EIGENSTRAT file
@@ -226,71 +226,71 @@ pam_file open_pam(char* filename, snp_data* snp_info, ind_data* ind_info);
  *
  * @return object with file pointer and information necessary to read EIGENSTRAT file 
  */
-egn_file open_egn(char* filename, snp_data* snp_info, ind_data* ind_info);
+egn_file_reader open_egn(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
- * @brief closes pam_file object
+ * @brief closes pam_file_reader object
  *
- * @param[in,out] pf pointer to pam_file object
+ * @param[in,out] pf pointer to pam_file_reader object
  *
  * @return status code indicating whether or not the file was successfully closed
  * @retval 0 file successfully closed
  * @retval EOF file not successfully closed
  */
-int close_pam_file(pam_file* pf);
+int close_pam_file_reader(pam_file_reader* pf);
 
 /**
- * @brief closes egn_file object
+ * @brief closes egn_file_reader object
  *
- * @param[in,out] pf pointer to egn_file object
+ * @param[in,out] ef pointer to egn_file_reader object
  *
  * @return status code indicating whether or not the file was successfully closed
  * @retval 0 file successfully closed
  * @retval EOF file not successfully closed
  */
-int close_egn_file(egn_file* ef);
+int close_egn_file_reader(egn_file_reader* ef);
 
 /**
  * @brief reads header record of PACKEDANCESTRY map file.
  * This must be read before any other record is read
  *
- * @param[in,out] pam_file pointer to pam_file object 
+ * @param[in,out] pf pointer to pam_file_reader object 
  *
  * @return hdr_data object containing important header information
  */
-hdr_data read_pam_header(pam_file* pf);
+hdr_data read_pam_header(pam_file_reader* pf);
 
 /**
- * @brief reads record of dosages of the current genetic variant from pam_file object and iterates to the next one
+ * @brief reads record of dosages of the current genetic variant from pam_file_reader object and iterates to the next one
  *
- * @param[in,out] pam_file pointer to pam_file object
+ * @param[in,out] pf pointer to pam_file_reader object
  *
  * @return array of allelic dosages of length pf->length. Dosages must be either 0,1,2, or NAN_VAL.
  */
-uint8_t* read_pam_record(pam_file* pf);
+uint8_t* read_pam_record(pam_file_reader* pf);
 
 /**
- * @brief reads record of dosages of the current genetic variant from egn_file object and iterates to the next one
+ * @brief reads record of dosages of the current genetic variant from egn_file_reader object and iterates to the next one
  *
- * @param[in,out] egn_file pointer to egn_file object
+ * @param[in,out] ef pointer to egn_file_reader object
  *
  * @return array of allelic dosages of length ef->length. Dosages must be either 0,1,2, or NAN_VAL.
  */
-uint8_t* read_egn_record(egn_file* ef);
+uint8_t* read_egn_record(egn_file_reader* ef);
 
 /**
- * @brief sends egn_file object to the location of a particular variant
+ * @brief sends egn_file_reader object to the location of a particular variant
  *
- * @param[in,out] egn_file pointer to egn_file object
+ * @param[in,out] ef pointer to egn_file_reader object
  */
-void goto_var_egn(egn_file* ef, snp_data* snp_info, char* var_name);
+void goto_var_egn(egn_file_reader* ef, snp_data* snp_info, char* var_name);
 
 /**
- * @brief sends pam_file object to the location of a particular variant
+ * @brief sends pam_file_reader object to the location of a particular variant
  *
- * @param[in,out] pam_file pointer to egn_file object
+ * @param[in,out] pf pointer to pam_file object
  */
-void goto_var_pam(pam_file* pf, snp_data* snp_info, char* var_name);
+void goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name);
 
 /**
  * @brief frees snp_data object
