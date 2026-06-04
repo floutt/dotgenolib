@@ -127,6 +127,34 @@ typedef struct {
 	FILE* fp; /**< File pointer to EIGENSTRAT file */
 } egn_file_reader;
 
+typedef struct {
+	bool hdr_read;
+	bool is_open;
+	size_t n_snp;
+	size_t n_ind;
+	size_t n_written_snp;
+	size_t record_size;
+	FILE* fp;
+} pam_file_writer;
+
+typedef struct {
+	bool is_open;
+	size_t n_snp;
+	size_t n_ind;
+	size_t n_written_snp;
+	FILE* fp;
+} egn_file_writer;
+
+pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
+
+egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
+
+void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_info);
+
+void write_pam_record(pam_file_writer* pfw, uint8_t* dosages);
+
+void write_egn_record(egn_file_writer* efw, uint8_t* dosages);
+
 /*! @typedef
  * @brief struct containing information encoded in PACKEDANCESTRYMAP file headers
  */

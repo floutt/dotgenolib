@@ -9,6 +9,8 @@
 #include "dotgeno.h"
 
 // macros
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+
 #define SNP_NUM_COLS 6
 #define SNP_VAR_COL 0
 #define SNP_CHR_COL 1
@@ -364,6 +366,120 @@ void goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name) {
 	size_t idx_go = kh_value(snp_info->rev_idx, k);
 	fseek(pf->fp, (idx_go + 1) * (pf->record_size), SEEK_SET);
 	pf->idx = idx_go;
+}
+
+pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
+	pam_file_writer pfw;
+	pfw.hdr_read = false;
+	pfw.is_open = true;
+	pfw.n_snp = snp_info->length;
+	pfw.n_ind = ind_info->length;
+	pfw.n_written_snp = 0;
+	pfw.fp = safe_read(filename, "wb+");
+	return pfw;
+}
+
+egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
+	egn_file_writer efw;
+	efw.is_open = true;
+	efw.n_snp = snp_info->length;
+	efw.n_ind = ind_info->length;
+	efw.n_written_snp = 0;
+	efw.fp = safe_read(filename, "w+");
+	return efw;
+}
+
+void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_info) {
+	if(pfw->hdr_read) {
+		fprintf(stderr, "ERROR: pam_file_writer object header has already been written!");
+		exit(EXIT_FAILURE);
+	}
+	int num_chars = fprintf(pfw->fp, "GENO   %u %u %x %x", 	pfw->n_ind, pfw->n_snp, ind_info->hash, snp_info->hash);
+	if(num_chars < 0) {
+		fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.");
+		exit(EXIT_FAILURE);
+	}
+	size_t record_size = MAX(num_chars, (int)ceil((float)(pfw->n_ind*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE));
+  	size_t n_trailing_bytes_hdr	= record_size - num_chars;
+	for(int i = 0; i < n_trailing_bytes_hdr; i++) {
+		int ret = fputc('\0', pfw->fp);
+		if(ret == EOF) {
+			fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.");
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+void write_pam_record(pam_file_writer* pfw, uint8_t* dosages) {
+	if(!pfw->hdr_read) {
+		fprintf(stderr, "ERROR: header has not been written for PACKEDANCESTRYMAP file");
+		exit(EXIT_FAILURE);
+	}
+	if(!pfw->is_open) {
+		fprintf(stderr, "ERROR: PACKEDANCESTRYMAP file is closed");
+		exit(EXIT_FAILURE);
+	}
+	if(pfw->n_written_snp >= pfw->n_snp) {
+		fprintf(stderr, "ERROR: Cannot write to PACKEDANCESTRYMAP file. All SNP records have been written.");
+		exit(EXIT_FAILURE);
+	}
+	uint8_t record_byte = 0;
+	for(int i = 0; i < pfw->n_ind; i++) {
+		if((i != 0) && ((i%(BITS_IN_BYTE/RECORD_ELEM_SIZE_BITS)) == 0)) {
+			int ret = fputc(record_byte, pfw->fp);
+			if(ret == EOF) {
+				fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.");
+				exit(EXIT_FAILURE);
+			}
+			record_byte = 0;
+		}
+		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE;
+		uint8_t shift_by = (BITS_IN_BYTE-RECORD_ELEM_SIZE_BITS) - (RECORD_ELEM_SIZE_BITS*elem_pos);
+		record_byte = record_byte | ((RECORD_ELEMS_MASK_BASE << shift_by) | (dosages[i] << shift_by));
+	}
+	// write last record if not written
+	if(((pfw->n_ind - 1)%(BITS_IN_BYTE/RECORD_ELEM_SIZE_BITS)) != 0) {
+		int ret = fputc(record_byte, pfw->fp);
+		if(ret == EOF) {
+			fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.");
+			exit(EXIT_FAILURE);
+		}
+	}
+	// write trailing bytes
+	size_t n_trailing_bytes = pfw->record_size - (int)ceil((float)(pfw->n_ind*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
+	for(int i = 0; i < n_trailing_bytes; i++) {
+		int ret = fputc('\0', pfw->fp);
+		if(ret == EOF) {
+			fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.");
+			exit(EXIT_FAILURE);
+		}
+	}
+	pfw->n_written_snp += 1;
+}
+
+void write_egn_record(egn_file_writer* efw, uint8_t* dosages) {
+	if(!efw->is_open) {
+		fprintf(stderr, "ERROR: EIGENSTRAT file is closed");
+		exit(EXIT_FAILURE);
+	}
+	if(efw->n_written_snp >= efw->n_snp) {
+		fprintf(stderr, "ERROR: Cannot write to EIGENSTRAT file. All SNP records have been written.");
+		exit(EXIT_FAILURE);
+	}
+	for(int i = 0; i < efw->n_ind; i++) {
+		char dsg = ('0'*(dosages[i] == 0)) + ('1'*(dosages[i] == 1)) + ('2'*(dosages[i] == 2)) + ('9'*(dosages[i] == NAN_VAL));
+		int ret = fputc(dsg, efw->fp);
+		if(ret == EOF) {
+			fprintf(stderr, "ERROR: unsuccessful write to EIGENSTRAT file.");
+			exit(EXIT_FAILURE);
+		}
+	}
+	int ret = fputc('\n', efw->fp);
+	if(ret == EOF) {
+		fprintf(stderr, "ERROR: unsuccessful write to EIGENSTRAT file.");
+		exit(EXIT_FAILURE);
+	}
+	efw->n_written_snp += 1;
 }
 
 void free_str_array(char** arr, size_t length) {
