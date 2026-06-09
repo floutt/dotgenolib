@@ -1,8 +1,22 @@
 #include <string.h>
+#include <sys/queue.h>
 #include "khash.h"
 
 /*! @brief NAN value encoding */
 #define NAN_VAL 3
+
+
+struct idx_node {
+	size_t idx;
+	STAILQ_ENTRY(idx_node) nodes;
+};
+
+STAILQ_HEAD(idx_head, idx_node);
+
+typedef struct {
+	char** strs;
+	size_t length;
+} string_array;
 
 /*! @typedef
  * @brief Struct for indexing ind_data objects
@@ -233,6 +247,10 @@ short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx);
  * @retval 0 individual found
  */
 short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx);
+
+void get_multiple_snp_idx(snp_data* snp_info, string_array* var_names, struct idx_head* head);
+
+void get_multiple_ind_idx(ind_data* ind_info, string_array* ind_ids, string_array* ind_pops, struct idx_head* head);
 
 /**
  * @brief opens a PACKEDANCESTRYMAP file

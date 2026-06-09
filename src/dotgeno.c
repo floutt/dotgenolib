@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <math.h>
+#include <sys/queue.h>
 #include "khash.h"
 #include "dotgeno.h"
 
@@ -214,6 +215,36 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) 
 	} else {
 		*idx = kh_value(ind_info->rev_idx, k);
 		return 0;
+	}
+}
+
+void get_multiple_snp_idx(snp_data* snp_info, string_array* var_names, struct idx_head* head) {
+	for(int i = 0; i < var_names->length; i++) {
+		size_t idx;
+		short ret = get_snp_idx(snp_info, var_names->strs[i], &idx);
+		if(ret == -1) {
+			continue;
+		}
+		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
+		idn->idx = idx;
+		STAILQ_INSERT_TAIL(head, idn, nodes);
+	}
+}
+
+void get_multiple_ind_idx(ind_data* ind_info, string_array* ind_ids, string_array* ind_pops, struct idx_head* head) {
+	if(ind_ids->length != ind_pops->length) {
+		fprintf(stderr, "ERROR: ind_ids and ind_pops MUST be the same length!\n");
+	 	exit(EXIT_FAILURE);
+	}
+	for(int i = 0; i < ind_ids->length; i++) {
+		size_t idx;
+		short ret = get_ind_idx(ind_info, ind_ids->strs[i], ind_pops->strs[i], &idx);
+		if(ret == -1) {
+			continue;
+		}
+		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
+		idn->idx = idx;
+		STAILQ_INSERT_TAIL(head, idn, nodes);
 	}
 }
 
