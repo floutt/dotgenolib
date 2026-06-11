@@ -252,6 +252,10 @@ void get_multiple_snp_idx(snp_data* snp_info, string_array* var_names, struct id
 
 void get_multiple_ind_idx(ind_data* ind_info, string_array* ind_ids, string_array* ind_pops, struct idx_head* head);
 
+short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head);
+
+short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head);
+
 /**
  * @brief opens a PACKEDANCESTRYMAP file
  *

@@ -296,6 +296,48 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 	return 0;
 }
 
+short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head) {
+	// get length
+	size_t length = 0;
+	struct idx_node* tmp_node;
+	STAILQ_FOREACH(tmp_node, head, nodes) {
+		length++;
+	}
+	if(length == 0) {
+		return -1;
+	}
+	// make struct
+	ind_out->length = length,
+	ind_out->ind_id = (char**) malloc(length * sizeof(char*));
+	ind_out->sex = (char**) malloc(length * sizeof(char*));
+	ind_out->population = (char**) malloc(length * sizeof(char*));
+	ind_out->rev_idx = kh_init(ID_MAP_IND);	
+	int i = 0;
+	STAILQ_FOREACH(tmp_node, head, nodes) {
+		// assign values
+		ind_out->ind_id[i] = strdup(ind_in->ind_id[tmp_node->idx]);
+		ind_out->sex[i] = strdup(ind_in->sex[tmp_node->idx]);
+		ind_out->population[i] = strdup(ind_in->population[tmp_node->idx]);
+		// calculate hash
+		ind_out->hash *= 17;
+		ind_out->hash = ind_out->hash ^ hash_str(ind_out->ind_id[i]);
+		// reverse index hash table management
+		int ret;
+		ind_idx ind_idx_struct = (ind_idx){ind_out->ind_id[i], ind_out->population[i]};
+		khiter_t k = kh_put(ID_MAP_IND, ind_out->rev_idx, ind_idx_struct, &ret);
+		if(ret == -1) {
+			fprintf(stderr, "Error: Failed to insert individual into hash table!\n");
+			exit(EXIT_FAILURE);
+		} else if(ret == 0) {
+			fprintf(stderr, "Error: Multiple instances of individual (%s, %s) found.\n", ind_out->ind_id[i], ind_out->population[i]);
+			exit(EXIT_FAILURE);
+		}
+		kh_value(ind_out->rev_idx, k) = i;
+		i++;
+	}
+	return 0;
+}
+
 pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pam_file_reader pf;
 	size_t file_size = get_filesize(filename);
