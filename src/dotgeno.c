@@ -248,6 +248,54 @@ void get_multiple_ind_idx(ind_data* ind_info, string_array* ind_ids, string_arra
 	}
 }
 
+short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head) {
+	// get length
+	size_t length = 0;
+	struct idx_node* tmp_node;
+	STAILQ_FOREACH(tmp_node, head, nodes) {
+		length++;
+	}
+	if(length == 0) {
+		return -1;
+	}
+	// make struct
+	snp_out->length = length,
+	snp_out->var_id = (char**) malloc(length * sizeof(char*));
+	snp_out->chr = (char**) malloc(length * sizeof(char*));
+	snp_out->pos_morgans = (double*) malloc(length * sizeof(double));
+	snp_out->pos = (uint64_t*) malloc(length * sizeof(uint64_t));
+	snp_out->ref = (char**) malloc(length * sizeof(char*));
+	snp_out->alt = (char**) malloc(length * sizeof(char*));
+	snp_out->rev_idx = kh_init(ID_MAP_STR);
+	snp_out->hash = 0;
+	int i = 0;
+	STAILQ_FOREACH(tmp_node, head, nodes) {
+		// assign values
+		snp_out->var_id[i] = strdup(snp_in->var_id[tmp_node->idx]);
+		snp_out->chr[i] = strdup(snp_in->chr[tmp_node->idx]);
+		snp_out->pos_morgans[i] = snp_in->pos_morgans[tmp_node->idx];
+		snp_out->pos[i] = snp_in->pos[tmp_node->idx];
+		snp_out->ref[i] = strdup(snp_in->ref[tmp_node->idx]);
+		snp_out->alt[i] = strdup(snp_in->alt[tmp_node->idx]);
+		// calculate hash
+		snp_out->hash *= 17;
+		snp_out->hash = snp_out->hash ^ hash_str(snp_out->var_id[i]);
+		// reverse index hash table management
+		int ret;
+		khiter_t k = kh_put(ID_MAP_STR, snp_out->rev_idx, snp_out->var_id[i], &ret);
+		if(ret == -1) {
+			fprintf(stderr, "Error: Failed to insert variant name into hash table!\n");
+			exit(EXIT_FAILURE);
+		} else if(ret == 0) {
+			fprintf(stderr, "Error: Multiple instances of variant %s found.\n", snp_out->var_id[i]);
+			exit(EXIT_FAILURE);
+		}
+		kh_value(snp_out->rev_idx, k) = i;
+		i++;
+	}
+	return 0;
+}
+
 pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pam_file_reader pf;
 	size_t file_size = get_filesize(filename);
@@ -423,6 +471,10 @@ egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_dat
 void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_info) {
 	if(pfw->hdr_read) {
 		fprintf(stderr, "ERROR: pam_file_writer object header has already been written!\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!pfw->is_open) {
+		fprintf(stderr, "ERROR: PACKEDANCESTRYMAP file is closed!\n");
 		exit(EXIT_FAILURE);
 	}
 	int num_chars = fprintf(pfw->fp, "GENO   %u %u %x %x", 	pfw->n_ind, pfw->n_snp, ind_info->hash, snp_info->hash);
