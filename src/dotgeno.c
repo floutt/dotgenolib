@@ -632,28 +632,3 @@ void free_ind_data(ind_data* ind_info) {
 	free_str_array(ind_info->population, ind_info->length);
 	kh_destroy(ID_MAP_IND, ind_info->rev_idx);
 }
-
-void main(int argc, char* argv[]) {
-	ind_data ind_info = read_ind_file(argv[1]);
-	struct idx_head head;
-	STAILQ_INIT(&head);
-
-	// var_names
-	string_array iid;
-	iid.length = 3;
-	iid.strs = (char**)malloc(3 * sizeof(char*));
-	iid.strs[0] = "SAMPLE0";
-	iid.strs[1] = "SAMPLE2";
-	iid.strs[2] = "SAMPLE4";
-	string_array pop;
-	pop.length = 3;
-	pop.strs = (char**)malloc(3 * sizeof(char*));
-	pop.strs[0] = "Case";
-	pop.strs[1] = "Control";
-	pop.strs[2] = "Control";
-	ind_data ind_out;
-	get_multiple_ind_idx(&ind_info, &iid, &pop, &head);
-	filter_ind_data(&ind_info, &ind_out, &head);
-	write_ind_data(&ind_out, "test_filter.ind");
-	printf("%x\n", ind_out.hash);
-}
