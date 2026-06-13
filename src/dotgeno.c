@@ -338,7 +338,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 	return 0;
 }
 
-pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info) {
+pam_file_reader pam_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pam_file_reader pf;
 	size_t file_size = get_filesize(filename);
 	pf.is_hdr_read = false;
@@ -355,7 +355,7 @@ pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info)
 	return pf;
 }
 
-egn_file_reader open_egn(char* filename, snp_data* snp_info, ind_data* ind_info) {
+egn_file_reader egn_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	egn_file_reader ef;
 	ef.is_open = true;
 	ef.n_ind = ind_info->length;

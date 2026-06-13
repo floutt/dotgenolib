@@ -265,7 +265,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
  *
  * @return object with file pointer and information necessary to read PACKEDANCESTRYMAP file 
  */
-pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info);
+pam_file_reader pam_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
  * @brief opens a EIGENSTRAT file
@@ -276,7 +276,7 @@ pam_file_reader open_pam(char* filename, snp_data* snp_info, ind_data* ind_info)
  *
  * @return object with file pointer and information necessary to read EIGENSTRAT file 
  */
-egn_file_reader open_egn(char* filename, snp_data* snp_info, ind_data* ind_info);
+egn_file_reader egn_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
  * @brief closes pam_file_reader object
