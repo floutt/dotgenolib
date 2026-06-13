@@ -301,6 +301,28 @@ int close_pam_file_reader(pam_file_reader* pf);
 int close_egn_file_reader(egn_file_reader* ef);
 
 /**
+ * @brief closes pam_file_writer object
+ *
+ * @param[in,out] pfw pointer to pam_file_writer object
+ *
+ * @return status code indicating whether or not the file was successfully closed
+ * @retval 0 file successfully closed
+ * @retval EOF file not successfully closed
+ */
+int close_pam_file_writer(pam_file_writer* pfw);
+
+/**
+ * @brief closes egn_file_writer object
+ *
+ * @param[in,out] efw pointer to egn_file_writer object
+ *
+ * @return status code indicating whether or not the file was successfully closed
+ * @retval 0 file successfully closed
+ * @retval EOF file not successfully closed
+ */
+int close_egn_file_writer(egn_file_writer* efw);
+
+/**
  * @brief reads header record of PACKEDANCESTRY map file.
  * This must be read before any other record is read
  *

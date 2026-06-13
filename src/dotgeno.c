@@ -380,6 +380,16 @@ int close_egn_file_reader(egn_file_reader* ef) {
 	return fclose(ef->fp);
 }
 
+int close_pam_file_writer(pam_file_writer* pfw) {
+	pfw->is_open = false;
+	return fclose(pfw->fp);
+}
+
+int close_egn_file_writer(egn_file_writer* efw) {
+	efw->is_open = false;
+	return fclose(efw->fp);
+}
+
 hdr_data read_pam_header(pam_file_reader* pf) {
 	if(pf->is_hdr_read) {
 		fprintf(stderr, "Header already read!");
