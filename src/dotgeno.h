@@ -332,15 +332,25 @@ uint8_t* read_egn_record(egn_file_reader* ef);
  * @brief sends egn_file_reader object to the location of a particular variant
  *
  * @param[in,out] ef pointer to egn_file_reader object
+ * @param[in] snp_info pointer to corresponding snp_data object
+ * @param[in] var_name variant to transport object to
+ * @return status code indicating whether or not egn_file_reader was relocated to variant var_name
+ * @retval -1 variant not found
+ * @retval 0 successful relocation to variant var_name
  */
-void goto_var_egn(egn_file_reader* ef, snp_data* snp_info, char* var_name);
+short goto_var_egn(egn_file_reader* ef, snp_data* snp_info, char* var_name);
 
 /**
  * @brief sends pam_file_reader object to the location of a particular variant
  *
- * @param[in,out] pf pointer to pam_file object
+ * @param[in,out] pf pointer to pam_file_reader object
+ * @param[in] snp_info pointer to corresponding snp_data object
+ * @param[in] var_name variant to transport object to
+ * @return status code indicating whether or not pam_file_reader was relocated to variant var_name
+ * @retval -1 variant not found
+ * @retval 0 successful relocation to variant var_name
  */
-void goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name);
+short goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name);
 
 /**
  * @brief frees snp_data object

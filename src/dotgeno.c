@@ -455,22 +455,21 @@ uint8_t* read_egn_record(egn_file_reader* ef) {
 	return record;
 }
 
-void goto_var_egn(egn_file_reader* ef, snp_data* snp_info, char* var_name) {
+short goto_var_egn(egn_file_reader* ef, snp_data* snp_info, char* var_name) {
 	if(!ef->is_open) {
 		fprintf(stderr, "ERROR: egn_file_reader closed.\n");
 		exit(EXIT_FAILURE);
 	}
-	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx, var_name);
-	if(k == kh_end(snp_info->rev_idx)) {
-		fprintf(stderr, "ERROR: variant %s is not in the .snp file!\n", var_name);
-		exit(EXIT_FAILURE);
+	size_t idx_go;
+	short ret = get_snp_idx(snp_info, var_name, &idx_go);
+	if(ret == 0) {
+		fseek(ef->fp, idx_go * (ef->n_ind+1), SEEK_SET);
+		ef->idx = idx_go;
 	}
-	size_t idx_go = kh_value(snp_info->rev_idx, k);
-	fseek(ef->fp, idx_go * (ef->n_ind+1), SEEK_SET);
-	ef->idx = idx_go;
+	return ret;
 }
 
-void goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name) {
+short goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name) {
 	if(!pf->is_open) {
 		fprintf(stderr, "ERROR: pam_file_reader closed.\n");
 		exit(EXIT_FAILURE);
@@ -479,14 +478,13 @@ void goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name) {
 		fprintf(stderr, "ERROR: header must be read before going to variant.\n");
 		exit(EXIT_FAILURE);	
 	}
-	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx, var_name);
-	if(k == kh_end(snp_info->rev_idx)) {
-		fprintf(stderr, "ERROR: variant %s is not in the .snp file!\n", var_name);
-		exit(EXIT_FAILURE);
+	size_t idx_go;
+	short ret = get_snp_idx(snp_info, var_name, &idx_go);
+	if(ret == 0) {
+		fseek(pf->fp, (idx_go + 1) * (pf->record_size), SEEK_SET);
+		pf->idx = idx_go;
 	}
-	size_t idx_go = kh_value(snp_info->rev_idx, k);
-	fseek(pf->fp, (idx_go + 1) * (pf->record_size), SEEK_SET);
-	pf->idx = idx_go;
+	return ret;
 }
 
 pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
@@ -633,4 +631,29 @@ void free_ind_data(ind_data* ind_info) {
 	free_str_array(ind_info->sex, ind_info->length);
 	free_str_array(ind_info->population, ind_info->length);
 	kh_destroy(ID_MAP_IND, ind_info->rev_idx);
+}
+
+void main(int argc, char* argv[]) {
+	ind_data ind_info = read_ind_file(argv[1]);
+	struct idx_head head;
+	STAILQ_INIT(&head);
+
+	// var_names
+	string_array iid;
+	iid.length = 3;
+	iid.strs = (char**)malloc(3 * sizeof(char*));
+	iid.strs[0] = "SAMPLE0";
+	iid.strs[1] = "SAMPLE2";
+	iid.strs[2] = "SAMPLE4";
+	string_array pop;
+	pop.length = 3;
+	pop.strs = (char**)malloc(3 * sizeof(char*));
+	pop.strs[0] = "Case";
+	pop.strs[1] = "Control";
+	pop.strs[2] = "Control";
+	ind_data ind_out;
+	get_multiple_ind_idx(&ind_info, &iid, &pop, &head);
+	filter_ind_data(&ind_info, &ind_out, &head);
+	write_ind_data(&ind_out, "test_filter.ind");
+	printf("%x\n", ind_out.hash);
 }
