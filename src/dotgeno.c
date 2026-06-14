@@ -219,7 +219,7 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) 
 }
 
 void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head_idx, struct str_list_head* head_str) {
-	for(int i = 0; i < length; i++) {
+	for(size_t i = 0; i < length; i++) {
 		size_t idx;
 		short ret = get_snp_idx(snp_info, var_names[i], &idx);
 		if(ret == -1) {
@@ -237,7 +237,7 @@ void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, s
 }
 
 void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head_idx, struct ind_idx_head* head_iidx) {
-	for(int i = 0; i < length; i++) {
+	for(size_t i = 0; i < length; i++) {
 		size_t idx;
 		short ret = get_ind_idx(ind_info, ind_ids[i], ind_pops[i], &idx);
 		if(ret == -1) {
@@ -276,7 +276,7 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 	snp_out->alt = (char**) malloc(length * sizeof(char*));
 	snp_out->rev_idx = kh_init(ID_MAP_STR);
 	snp_out->hash = 0;
-	int i = 0;
+	size_t i = 0;
 	STAILQ_FOREACH(tmp_node, head, nodes) {
 		// assign values
 		snp_out->var_id[i] = strdup(snp_in->var_id[tmp_node->idx]);
@@ -320,7 +320,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 	ind_out->sex = (char**) malloc(length * sizeof(char*));
 	ind_out->population = (char**) malloc(length * sizeof(char*));
 	ind_out->rev_idx = kh_init(ID_MAP_IND);	
-	int i = 0;
+	size_t i = 0;
 	STAILQ_FOREACH(tmp_node, head, nodes) {
 		// assign values
 		ind_out->ind_id[i] = strdup(ind_in->ind_id[tmp_node->idx]);
@@ -348,7 +348,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 
 size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1, struct idx_head* head2) {
 	size_t length = 0;
-	for(int idx1 = 0; idx1 < snp1->length; idx1++) {
+	for(size_t idx1 = 0; idx1 < snp1->length; idx1++) {
 		size_t idx2;
 		short ret = get_snp_idx(snp2, snp1->var_id[idx1], &idx2);
 		if(ret == 0) {
@@ -479,7 +479,7 @@ uint8_t* read_pam_record(pam_file_reader* pf) {
 	uint8_t* record = (uint8_t*)malloc(pf->n_ind * sizeof(uint8_t));
 	size_t num_leftover_bytes = pf->record_size - (int)ceil((float)(pf->n_ind*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
 	uint8_t record_byte;
-	for(int i = 0; i < pf->n_ind; i++) {
+	for(size_t i = 0; i < pf->n_ind; i++) {
 		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE;
 		uint8_t shift_by = (BITS_IN_BYTE-RECORD_ELEM_SIZE_BITS) - (RECORD_ELEM_SIZE_BITS*elem_pos);
 		if(elem_pos == 0) {
@@ -508,7 +508,7 @@ uint8_t* read_egn_record(egn_file_reader* ef) {
 		fprintf(stderr, "ERROR: improperly formatted EIGENSTRAT geno file. Expected %u entries in line, got % u.\n", ef->n_ind+1, nread);
 		exit(EXIT_FAILURE);
 	}
-	for(int i = 0; i < ef->n_ind; i++) {
+	for(size_t i = 0; i < ef->n_ind; i++) {
 		// check if valid character
 		if(!((line[i] == '0') || (line[i] == '1') || (line[i] == '2') || (line[i] == '9'))) {
 			fprintf(stderr, "ERROR: characters must be '0', '1', '2', or '9'.\n");
@@ -590,7 +590,7 @@ void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_in
 	}
 	size_t record_size = MAX(num_chars, (int)ceil((float)(pfw->n_ind * RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE));
   	size_t n_trailing_bytes_hdr	= record_size - num_chars;
-	for(int i = 0; i < n_trailing_bytes_hdr; i++) {
+	for(size_t i = 0; i < n_trailing_bytes_hdr; i++) {
 		int ret = fputc('\0', pfw->fp);
 		if(ret == EOF) {
 			fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.\n");
@@ -615,7 +615,7 @@ void write_pam_record(pam_file_writer* pfw, uint8_t* dosages) {
 		exit(EXIT_FAILURE);
 	}
 	uint8_t record_byte = 0;
-	for(int i = 0; i < pfw->n_ind; i++) {
+	for(size_t i = 0; i < pfw->n_ind; i++) {
 		if((i != 0) && ((i%(BITS_IN_BYTE/RECORD_ELEM_SIZE_BITS)) == 0)) {
 			int ret = fputc(record_byte, pfw->fp);
 			if(ret == EOF) {
@@ -640,7 +640,7 @@ void write_pam_record(pam_file_writer* pfw, uint8_t* dosages) {
 
 	size_t n_trailing_bytes = pfw->record_size - (int)ceil((float)(pfw->n_ind * RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
 	// write trailing bytes
-	for(int i = 0; i < n_trailing_bytes; i++) {
+	for(size_t i = 0; i < n_trailing_bytes; i++) {
 		int ret = fputc('\0', pfw->fp);
 		if(ret == EOF) {
 			fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.\n");
@@ -659,7 +659,7 @@ void write_egn_record(egn_file_writer* efw, uint8_t* dosages) {
 		fprintf(stderr, "ERROR: Cannot write to EIGENSTRAT file. All SNP records have been written.\n");
 		exit(EXIT_FAILURE);
 	}
-	for(int i = 0; i < efw->n_ind; i++) {
+	for(size_t i = 0; i < efw->n_ind; i++) {
 		char dsg = ('0'*(dosages[i] == 0)) + ('1'*(dosages[i] == 1)) + ('2'*(dosages[i] == 2)) + ('9'*(dosages[i] == NAN_VAL));
 		int ret = fputc(dsg, efw->fp);
 		if(ret == EOF) {
@@ -676,7 +676,7 @@ void write_egn_record(egn_file_writer* efw, uint8_t* dosages) {
 }
 
 void free_str_array(char** arr, size_t length) {
-	for(int i = 0; i < length; i++) {
+	for(size_t i = 0; i < length; i++) {
 		free(arr[i]);
 	}
 	free(arr);
