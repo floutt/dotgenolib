@@ -13,11 +13,6 @@ struct idx_node {
 
 STAILQ_HEAD(idx_head, idx_node);
 
-typedef struct {
-	char** strs;
-	size_t length;
-} string_array;
-
 /*! @typedef
  * @brief Struct for indexing ind_data objects
  *
@@ -248,13 +243,17 @@ short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx);
  */
 short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx);
 
-void get_multiple_snp_idx(snp_data* snp_info, string_array* var_names, struct idx_head* head);
+void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head);
 
-void get_multiple_ind_idx(ind_data* ind_info, string_array* ind_ids, string_array* ind_pops, struct idx_head* head);
+void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head);
 
 short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head);
 
 short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head);
+
+size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1, struct idx_head* head2);
+
+void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out);
 
 /**
  * @brief opens a PACKEDANCESTRYMAP file
@@ -383,3 +382,5 @@ void free_snp_data(snp_data* snp_info);
  * @brief frees ind_data object
  */
 void free_ind_data(ind_data* ind_info);
+
+void free_idx_list(struct idx_head* head);

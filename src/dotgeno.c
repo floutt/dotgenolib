@@ -166,7 +166,7 @@ ind_data read_ind_file(char* filename) {
 			fprintf(stderr, "Error: Failed to insert individual into hash table!\n");
 			exit(EXIT_FAILURE);
 		} else if(ret == 0) {
-			fprintf(stderr, "Error: Multiple instances of individual (%s, %s) found in the .snp file.\n", ind_info.ind_id[idx], ind_info.population[idx]);
+			fprintf(stderr, "Error: Multiple instances of individual (%s, %s) found in the .ind file.\n", ind_info.ind_id[idx], ind_info.population[idx]);
 			exit(EXIT_FAILURE);
 		}
 		kh_value(ind_info.rev_idx, k) = idx;
@@ -218,10 +218,10 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) 
 	}
 }
 
-void get_multiple_snp_idx(snp_data* snp_info, string_array* var_names, struct idx_head* head) {
-	for(int i = 0; i < var_names->length; i++) {
+void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head) {
+	for(int i = 0; i < length; i++) {
 		size_t idx;
-		short ret = get_snp_idx(snp_info, var_names->strs[i], &idx);
+		short ret = get_snp_idx(snp_info, var_names[i], &idx);
 		if(ret == -1) {
 			continue;
 		}
@@ -231,14 +231,10 @@ void get_multiple_snp_idx(snp_data* snp_info, string_array* var_names, struct id
 	}
 }
 
-void get_multiple_ind_idx(ind_data* ind_info, string_array* ind_ids, string_array* ind_pops, struct idx_head* head) {
-	if(ind_ids->length != ind_pops->length) {
-		fprintf(stderr, "ERROR: ind_ids and ind_pops MUST be the same length!\n");
-	 	exit(EXIT_FAILURE);
-	}
+void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head) {
 	for(int i = 0; i < ind_ids->length; i++) {
 		size_t idx;
-		short ret = get_ind_idx(ind_info, ind_ids->strs[i], ind_pops->strs[i], &idx);
+		short ret = get_ind_idx(ind_info, ind_ids[i], ind_pops[i], &idx);
 		if(ret == -1) {
 			continue;
 		}
@@ -336,6 +332,54 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 		i++;
 	}
 	return 0;
+}
+
+size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1, struct idx_head* head2) {
+	size_t length = 0;
+	for(int idx1 = 0; i < snp1->length; idx1++) {
+		size_t idx2;
+		short ret = get_snp_idx(snp2, snp1->var_id[idx1], &idx2);
+		if(ret == 0) {
+			struct idx_node* idn1 = (struct idx_node*)malloc(sizeof(struct idx_node));
+			idn1->idx = idx1;
+			STAILQ_INSERT_TAIL(head1, idn1, nodes);
+			struct idx_node* idn2 = (struct idx_node*)malloc(sizeof(struct idx_node));
+			idn1->idx = idx2;
+			STAILQ_INSERT_TAIL(head2, idn2, nodes);
+			length++;
+		}
+	}
+	return length;
+}
+
+void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
+	ind_out->length = ind1->length + ind2->length;
+	ind_out->hash = 0;
+	// copy ind1 data
+	memcpy(ind1->length, ind_out->ind_id, ind1->ind_id);
+	memcpy(ind1->length, ind_out->sex, ind1->sex);
+	memcpy(ind1->length, ind_out->population, ind1->population);
+	// copy ind2 data
+	memcpy(ind2->length, ind_out->ind_id + ind1->length, ind2->ind_id);
+	memcpy(ind2->length, ind_out->sex + ind1->length, ind2->sex);
+	memcpy(ind2->length, ind_out->population + ind1->length, ind2->population);
+	// init hash
+	ind_out->rev_idx = kh_init(ID_MAP_IND);
+	for(size_t idx = 0; idx < ind_out->length; idx++) {
+		int ret;
+		ind_idx ind_idx_struct = (ind_idx){ind_out->ind_id[idx], ind_out->population[idx]};
+		khiter_t k = kh_put(ID_MAP_IND, ind_out->rev_idx, ind_idx_struct, &ret);
+		if(ret == -1) {
+			fprintf(stderr, "Error: Failed to insert individual into hash table!\n");
+			exit(EXIT_FAILURE);
+		} else if(ret == 0) {
+			fprintf(stderr, "Error: Instances of individual (%s, %s) found in both individual objects.\n", ind_out->ind_id[idx], ind_out->population[idx]);
+			exit(EXIT_FAILURE);
+		}
+		kh_value(ind_out->rev_idx, k) = idx;
+		ind_out->hash *= 17;
+		ind_out->hash = ind_out->hash ^ hash_str(ind_out->ind_id[i]);
+	}
 }
 
 pam_file_reader pam_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
@@ -641,4 +685,12 @@ void free_ind_data(ind_data* ind_info) {
 	free_str_array(ind_info->sex, ind_info->length);
 	free_str_array(ind_info->population, ind_info->length);
 	kh_destroy(ID_MAP_IND, ind_info->rev_idx);
+}
+
+void free_idx_list(struct idx_head* head) {
+	while(!STAILQ_EMPTY(head)) {
+		struct idx_node* tmp = STAILQ_FIRST(head);
+		STAILQ_REMOVE_HEAD(head, nodes);
+		free(tmp);
+	}
 }
