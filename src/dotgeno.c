@@ -218,29 +218,41 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) 
 	}
 }
 
-void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head) {
+void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head_idx, struct str_list_head* head_str) {
 	for(int i = 0; i < length; i++) {
 		size_t idx;
 		short ret = get_snp_idx(snp_info, var_names[i], &idx);
 		if(ret == -1) {
+			if(head_str) {
+				struct str_node* stn = (struct str_node*)malloc(sizeof(struct str_node));
+				stn->str = strdup(var_names[i]);
+				STAILQ_INSERT_TAIL(head_str, stn, nodes);
+			}
 			continue;
 		}
 		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
 		idn->idx = idx;
-		STAILQ_INSERT_TAIL(head, idn, nodes);
+		STAILQ_INSERT_TAIL(head_idx, idn, nodes);
 	}
 }
 
-void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head) {
-	for(int i = 0; i < ind_ids->length; i++) {
+void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head_idx, struct ind_idx_head* head_iidx) {
+	for(int i = 0; i < length; i++) {
 		size_t idx;
 		short ret = get_ind_idx(ind_info, ind_ids[i], ind_pops[i], &idx);
 		if(ret == -1) {
+			if(head_iidx) {
+				struct ind_idx_node* idn = (struct ind_idx_node*)malloc(sizeof(struct ind_idx_node));
+				idn->iidx = (ind_idx*)malloc(sizeof(ind_idx));
+				idn->iidx->ind_id = strdup(ind_ids[i]);
+				idn->iidx->ind_pop = strdup(ind_pops[i]);
+				STAILQ_INSERT_TAIL(head_iidx, idn, nodes);
+			}
 			continue;
 		}
 		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
 		idn->idx = idx;
-		STAILQ_INSERT_TAIL(head, idn, nodes);
+		STAILQ_INSERT_TAIL(head_idx, idn, nodes);
 	}
 }
 
@@ -336,7 +348,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 
 size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1, struct idx_head* head2) {
 	size_t length = 0;
-	for(int idx1 = 0; i < snp1->length; idx1++) {
+	for(int idx1 = 0; idx1 < snp1->length; idx1++) {
 		size_t idx2;
 		short ret = get_snp_idx(snp2, snp1->var_id[idx1], &idx2);
 		if(ret == 0) {
@@ -356,13 +368,13 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
 	ind_out->length = ind1->length + ind2->length;
 	ind_out->hash = 0;
 	// copy ind1 data
-	memcpy(ind1->length, ind_out->ind_id, ind1->ind_id);
-	memcpy(ind1->length, ind_out->sex, ind1->sex);
-	memcpy(ind1->length, ind_out->population, ind1->population);
+	memcpy(ind_out->ind_id, ind1->ind_id, ind1->length);
+	memcpy(ind_out->sex, ind1->sex, ind1->length);
+	memcpy(ind_out->population, ind1->population, ind1->length);
 	// copy ind2 data
-	memcpy(ind2->length, ind_out->ind_id + ind1->length, ind2->ind_id);
-	memcpy(ind2->length, ind_out->sex + ind1->length, ind2->sex);
-	memcpy(ind2->length, ind_out->population + ind1->length, ind2->population);
+	memcpy(ind_out->ind_id + ind1->length, ind2->ind_id, ind2->length);
+	memcpy(ind_out->sex + ind1->length, ind2->sex, ind2->length);
+	memcpy(ind_out->population + ind1->length, ind2->population, ind2->length);
 	// init hash
 	ind_out->rev_idx = kh_init(ID_MAP_IND);
 	for(size_t idx = 0; idx < ind_out->length; idx++) {
@@ -378,7 +390,7 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
 		}
 		kh_value(ind_out->rev_idx, k) = idx;
 		ind_out->hash *= 17;
-		ind_out->hash = ind_out->hash ^ hash_str(ind_out->ind_id[i]);
+		ind_out->hash = ind_out->hash ^ hash_str(ind_out->ind_id[idx]);
 	}
 }
 
@@ -691,6 +703,26 @@ void free_idx_list(struct idx_head* head) {
 	while(!STAILQ_EMPTY(head)) {
 		struct idx_node* tmp = STAILQ_FIRST(head);
 		STAILQ_REMOVE_HEAD(head, nodes);
+		free(tmp);
+	}
+}
+
+void free_str_list(struct str_list_head* head) {
+	while(!STAILQ_EMPTY(head)) {
+		struct str_node* tmp = STAILQ_FIRST(head);
+		STAILQ_REMOVE_HEAD(head, nodes);
+		free(tmp->str);
+		free(tmp);
+	}
+}
+
+void free_ind_idx_list(struct ind_idx_head* head) {
+	while(!STAILQ_EMPTY(head)) {
+		struct ind_idx_node* tmp = STAILQ_FIRST(head);
+		STAILQ_REMOVE_HEAD(head, nodes);
+		free(tmp->iidx->ind_id);
+		free(tmp->iidx->ind_pop);
+		free(tmp->iidx);
 		free(tmp);
 	}
 }

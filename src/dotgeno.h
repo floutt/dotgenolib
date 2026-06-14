@@ -5,14 +5,6 @@
 /*! @brief NAN value encoding */
 #define NAN_VAL 3
 
-
-struct idx_node {
-	size_t idx;
-	STAILQ_ENTRY(idx_node) nodes;
-};
-
-STAILQ_HEAD(idx_head, idx_node);
-
 /*! @typedef
  * @brief Struct for indexing ind_data objects
  *
@@ -22,6 +14,27 @@ typedef struct {
 	char* ind_id; /**< Intrapopulation identifier for individual */
 	char* ind_pop; /**< Unique population identifier*/
 } ind_idx;
+
+struct idx_node {
+	size_t idx;
+	STAILQ_ENTRY(idx_node) nodes;
+};
+
+STAILQ_HEAD(idx_head, idx_node);
+
+struct str_node {
+	char* str;
+	STAILQ_ENTRY(str_node) nodes;
+};
+
+STAILQ_HEAD(str_list_head, str_node);
+
+struct ind_idx_node {
+	ind_idx* iidx;
+	STAILQ_ENTRY(ind_idx_node) nodes;
+};
+
+STAILQ_HEAD(ind_idx_head, ind_idx_node);
 
 // String linker for .ind hashing
 char IND_LINK[20] = "gzvrEy55bcEN0gqRqvL6";
@@ -243,9 +256,9 @@ short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx);
  */
 short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx);
 
-void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head);
+void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head, struct str_list_head* head_str);
 
-void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head);
+void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head, struct ind_idx_head* head_iidx);
 
 short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head);
 
@@ -384,3 +397,7 @@ void free_snp_data(snp_data* snp_info);
 void free_ind_data(ind_data* ind_info);
 
 void free_idx_list(struct idx_head* head);
+
+void free_str_list(struct str_list_head* head);
+
+void free_ind_idx_list(struct ind_idx_head* head);
