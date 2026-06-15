@@ -367,6 +367,9 @@ size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1
 void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
 	ind_out->length = ind1->length + ind2->length;
 	ind_out->hash = 0;
+	ind_out->ind_id = (char**) malloc(ind_out->length * sizeof(char*));
+	ind_out->sex = (char**) malloc(ind_out->length * sizeof(char*));
+	ind_out->population = (char**) malloc(ind_out->length * sizeof(char*));
 	// copy ind1 data
 	memcpy(ind_out->ind_id, ind1->ind_id, ind1->length);
 	memcpy(ind_out->sex, ind1->sex, ind1->length);
