@@ -15,11 +15,15 @@ typedef struct {
 	char* ind_pop; /**< Unique population identifier*/
 } ind_idx;
 
+
 struct idx_node {
 	size_t idx;
 	STAILQ_ENTRY(idx_node) nodes;
 };
 
+/*
+ * @brief queue.h linked list head for ind_data and snp_data indices
+ */
 STAILQ_HEAD(idx_head, idx_node);
 
 struct str_node {
@@ -27,6 +31,9 @@ struct str_node {
 	STAILQ_ENTRY(str_node) nodes;
 };
 
+/*
+ * @brief queue.h linked list head for strings
+ */
 STAILQ_HEAD(str_list_head, str_node);
 
 struct ind_idx_node {
@@ -34,6 +41,9 @@ struct ind_idx_node {
 	STAILQ_ENTRY(ind_idx_node) nodes;
 };
 
+/*
+ * @brief queue.h linked list head for storing ind_idx objects
+ */
 STAILQ_HEAD(ind_idx_head, ind_idx_node);
 
 // String linker for .ind hashing
@@ -130,7 +140,7 @@ typedef struct {
  */
 typedef struct {
 	bool is_hdr_read; /**< Whether the header of the PACKEDANCESTRYMAP file has been read */
-	bool is_open; /**< Whether the header of the PACKEDANCESTRYMAP file has been opened */
+	bool is_open; /**< Whether the PACKEDANCESTRYMAP file has been opened */
 	size_t idx; /**< Index of the current record being iterated */
 	size_t record_size; /**< Size of each PACKEDANCESTRYMAP record */
 	size_t n_ind; /**< Number of individuals in the file */
@@ -142,7 +152,7 @@ typedef struct {
  * @brief struct containing information necessary to read EIGENSTRAT files
  */
 typedef struct {
-	bool is_open; /**< Whether the header of the EIGENSTRAT file has been opened */
+	bool is_open; /**< Whether the EIGENSTRAT file has been opened */
 	size_t idx; /**< Index of the current record being iterated */
 	size_t n_ind; /**< Number of individuals in the file */
 	size_t n_snp; /**< Number of genetic variants in the file */  
@@ -150,26 +160,22 @@ typedef struct {
 } egn_file_reader;
 
 typedef struct {
-	bool hdr_read;
-	bool is_open;
-	size_t n_snp;
-	size_t n_ind;
-	size_t n_written_snp;
-	size_t record_size;
-	FILE* fp;
+	bool hdr_written; /**< Whether the header of the PACKEDANCESTRYMAP file has been written */
+	bool is_open; /**< Whether the PACKEDANCESTRYMAP file has been opened */
+	size_t n_snp; /**< Number of genetic variants to write in the file */ 
+	size_t n_ind; /**< Number of individuals to write in the file */ 
+	size_t n_written_snp; /**< Number of variants written to the file */
+	size_t record_size; /**< Size of each PACKEDANCESTRYMAP record */
+	FILE* fp; /**< File pointer to PACKEDANCESTRYMAP file */
 } pam_file_writer;
 
 typedef struct {
-	bool is_open;
-	size_t n_snp;
-	size_t n_ind;
-	size_t n_written_snp;
-	FILE* fp;
+	bool is_open; /**< Whether the EIGENSTRAT file has been opened */
+	size_t n_snp; /**< Number of genetic variants to write in the file */
+	size_t n_ind; /**< Number of individuals to write in the file */ 
+	size_t n_written_snp; /**< Number of variants written to the file */
+	FILE* fp; /**< File pointer to EIGENSTRAT file */
 } egn_file_writer;
-
-pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
-
-egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_info);
 
@@ -256,9 +262,9 @@ short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx);
  */
 short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx);
 
-void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head, struct str_list_head* head_str);
+void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head_idx, struct str_list_head* head_str);
 
-void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head, struct ind_idx_head* head_iidx);
+void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head_idx, struct ind_idx_head* head_iidx);
 
 short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head);
 
@@ -269,7 +275,7 @@ size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1
 void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out);
 
 /**
- * @brief opens a PACKEDANCESTRYMAP file
+ * @brief opens PACKEDANCESTRYMAP file and initializes reader
  *
  * @param[in] filename path to PACKEDANCESTRYMAP file
  * @param[in] snp_info pointer to corresponding snp_data object
@@ -280,7 +286,7 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out);
 pam_file_reader pam_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
- * @brief opens a EIGENSTRAT file
+ * @brief opens EIGENSTRAT file and initializes reader
  *
  * @param[in] filename path to EIGENSTRAT file
  * @param[in] snp_info pointer to corresponding snp_data object
@@ -289,6 +295,28 @@ pam_file_reader pam_file_reader_init(char* filename, snp_data* snp_info, ind_dat
  * @return object with file pointer and information necessary to read EIGENSTRAT file 
  */
 egn_file_reader egn_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info);
+
+/**
+ * @brief initializes PACKEDANCESTRYMAP file writer
+ *
+ * @param[in] filename path to PACKEDANCESTRYMAP file
+ * @param[in] snp_info pointer to corresponding snp_data object
+ * @param[in] ind_info pointer to corresponding ind_data object
+ *
+ * @return object with file pointer and information necessary to read PACKEDANCESTRYMAP file 
+ */
+pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
+
+/**
+ * @brief initializes EIGENSTRAT file writer
+ *
+ * @param[in] filename path to EIGENSTRAT file
+ * @param[in] snp_info pointer to corresponding snp_data object
+ * @param[in] ind_info pointer to corresponding ind_data object
+ *
+ * @return object with file pointer and information necessary to read EIGENSTRAT file 
+ */
+egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
  * @brief closes pam_file_reader object

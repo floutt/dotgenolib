@@ -558,7 +558,7 @@ short goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name) {
 
 pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pam_file_writer pfw;
-	pfw.hdr_read = false;
+	pfw.hdr_written = false;
 	pfw.is_open = true;
 	pfw.n_snp = snp_info->length;
 	pfw.n_ind = ind_info->length;
@@ -578,7 +578,7 @@ egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_dat
 }
 
 void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_info) {
-	if(pfw->hdr_read) {
+	if(pfw->hdr_written) {
 		fprintf(stderr, "ERROR: pam_file_writer object header has already been written!\n");
 		exit(EXIT_FAILURE);
 	}
@@ -600,12 +600,12 @@ void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_in
 			exit(EXIT_FAILURE);
 		}
 	}
-	pfw->hdr_read = true;
+	pfw->hdr_written = true;
 	pfw->record_size = record_size;
 }
 
 void write_pam_record(pam_file_writer* pfw, uint8_t* dosages) {
-	if(!pfw->hdr_read) {
+	if(!pfw->hdr_written) {
 		fprintf(stderr, "ERROR: header has not been written for PACKEDANCESTRYMAP file!\n");
 		exit(EXIT_FAILURE);
 	}
@@ -728,4 +728,27 @@ void free_ind_idx_list(struct ind_idx_head* head) {
 		free(tmp->iidx);
 		free(tmp);
 	}
+}
+
+void main(int argc, char* argv[]) {
+	snp_data snp_info = read_snp_file(argv[1]);
+	char* snps[6] = {"rs1111", "rs3243", "rs5555", "rs6666", "BEER", "dsfxkhlkjsdhhfs"};
+	struct idx_head head_idx;
+	STAILQ_INIT(&head_idx);
+	struct str_list_head head_str;
+	STAILQ_INIT(&head_str);
+	get_multiple_snp_idx(&snp_info, snps, 6, &head_idx, &head_str);
+	struct idx_node* idn;
+	STAILQ_FOREACH(idn, &head_idx, nodes) {
+		printf("%u\n", idn->idx);
+	}
+	struct str_node* sn;
+	STAILQ_FOREACH(sn, &head_str, nodes) {
+		printf("%s\n", sn->str);
+	}
+
+	// freeee
+	free_snp_data(&snp_info);
+	free_idx_list(&head_idx);
+	free_str_list(&head_str);
 }
