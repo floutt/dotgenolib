@@ -729,26 +729,3 @@ void free_ind_idx_list(struct ind_idx_head* head) {
 		free(tmp);
 	}
 }
-
-void main(int argc, char* argv[]) {
-	snp_data snp_info = read_snp_file(argv[1]);
-	char* snps[6] = {"rs1111", "rs3243", "rs5555", "rs6666", "BEER", "dsfxkhlkjsdhhfs"};
-	struct idx_head head_idx;
-	STAILQ_INIT(&head_idx);
-	struct str_list_head head_str;
-	STAILQ_INIT(&head_str);
-	get_multiple_snp_idx(&snp_info, snps, 6, &head_idx, &head_str);
-	struct idx_node* idn;
-	STAILQ_FOREACH(idn, &head_idx, nodes) {
-		printf("%u\n", idn->idx);
-	}
-	struct str_node* sn;
-	STAILQ_FOREACH(sn, &head_str, nodes) {
-		printf("%s\n", sn->str);
-	}
-
-	// freeee
-	free_snp_data(&snp_info);
-	free_idx_list(&head_idx);
-	free_str_list(&head_str);
-}
