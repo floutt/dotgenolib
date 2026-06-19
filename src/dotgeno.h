@@ -162,8 +162,8 @@ typedef struct {
 typedef struct {
 	bool hdr_written; /**< Whether the header of the PACKEDANCESTRYMAP file has been written */
 	bool is_open; /**< Whether the PACKEDANCESTRYMAP file has been opened */
-	size_t n_snp; /**< Number of genetic variants to write in the file */ 
 	size_t n_ind; /**< Number of individuals to write in the file */ 
+	size_t n_snp; /**< Number of genetic variants to write in the file */ 
 	size_t n_written_snp; /**< Number of variants written to the file */
 	size_t record_size; /**< Size of each PACKEDANCESTRYMAP record */
 	FILE* fp; /**< File pointer to PACKEDANCESTRYMAP file */
@@ -171,16 +171,35 @@ typedef struct {
 
 typedef struct {
 	bool is_open; /**< Whether the EIGENSTRAT file has been opened */
-	size_t n_snp; /**< Number of genetic variants to write in the file */
 	size_t n_ind; /**< Number of individuals to write in the file */ 
+	size_t n_snp; /**< Number of genetic variants to write in the file */
 	size_t n_written_snp; /**< Number of variants written to the file */
 	FILE* fp; /**< File pointer to EIGENSTRAT file */
 } egn_file_writer;
 
+/**
+ * @brief writes the header record of PACKEDANCESTRYMAP file
+ *
+ * @param[out] pfw pam_file_writer object to write header to
+ * @param[in] snp_info corresponding variant information for pfw
+ * @param[in] ind_info corresponding individual information for pfw
+ */
 void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_info);
 
+/**
+ * @brief writes variant record to PACKEDANCESTRYMAP file 
+ *
+ * @param[out] pfw pam_file_writer object to write record to
+ * @param[in] dosages array of dosages. Should be of length pfw->n_ind
+ */
 void write_pam_record(pam_file_writer* pfw, uint8_t* dosages);
 
+/**
+ * @brief writes variant record to EIGENSTRAT file 
+ *
+ * @param[out] efw egn_file_writer object to write record to
+ * @param[in] dosages array of dosages. Should be of length efw->n_ind
+ */
 void write_egn_record(egn_file_writer* efw, uint8_t* dosages);
 
 /*! @typedef
@@ -262,16 +281,78 @@ short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx);
  */
 short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx);
 
+/**
+ * @brief returns the numerical indices of a set of var_names
+ * 
+ * This function will only return indices for elements of var_names found in the snp_data object
+ *
+ * @param[in] snp_info snp_data object to be queried
+ * @param[in] var_names array of strings representing variable names
+ * @param[in] length length of the var_names array
+ * @param[out] head_idx head of the index linked list where indexes will be stored
+ * @param[out] head_str head of string linked list where variant names not found will be stored. Set to NULL if you don't want to store this information
+ */
 void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, struct idx_head* head_idx, struct str_list_head* head_str);
 
+/**
+ * @brief returns the numerical indices of a set of individuals
+ * 
+ * This function will only return indices for elements of individuals found in the ind_data object
+ *
+ * @param[in] ind_info ind_data object to be queried
+ * @param[in] ind_ids array of strings representing the individual IDs
+ * @param[in] ind_pops array of strings representing the individuals' respective populations 
+ * @param[in] length length of the ind_ids and ind_pops arrays
+ * @param[out] head_idx head of the index linked list where indexes will be stored
+ * @param[out] head_iidx head of ind_idx linked list where individual identifier structs of individuals not found will be stored. Set to NULL if you don't want to store this information
+ */
 void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head_idx, struct ind_idx_head* head_iidx);
 
+/**
+ * @brief filters snp_data object to only those elements found in the provided list
+ *
+ * @param[in] snp_in snp_data object to be filtered
+ * @param[out] snp_out snp_data object in which to write the filtered data to
+ * @param[in] head head of linked list containing the indices from snp_in to include in snp_out
+ *
+ * @return status code indicating whether snp_out was modified
+ * @retval 0 snp_out successfully modified
+ * @retval -1 snp_out not modified, linked list was of length 0
+ */
 short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head);
 
+/**
+ * @brief filters ind_data object to only those elements found in the provided list
+ *
+ * @param[in] ind_in ind_data object to be filtered
+ * @param[out] ind_out ind_data object in which to write the filtered data to
+ * @param[in] head head of linked list containing the indices from ind_in to include in ind_out
+ *
+ * @return status code indicating whether ind_out was modified
+ * @retval 0 ind_out successfully modified
+ * @retval -1 ind_out not modified, linked list was of length 0
+ */
 short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head);
 
+/**
+ * @brief finds the intersecting rows of two snp_data objects
+ *
+ * @param[in] snp1 snp_data object 1
+ * @param[in] snp2 snp_data object 2
+ * @param[out] head1 head of the linked list where snp1 indices of intersecting rows will be stored
+ * @param[out] head2 head of the linked list where snp2 indices of intersecting rows will be stored
+ *
+ * @return number of intersecting rows between snp1 and snp2
+ */
 size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1, struct idx_head* head2);
 
+/**
+ * @brief appends two ind_data objects
+ *
+ * @param[in] ind1 first ind_data object
+ * @param[in] ind2 second ind_data object
+ * @param[out] ind_out ind_data object whete ind1 + ind2 will be stored
+ */
 void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out);
 
 /**
@@ -424,8 +505,17 @@ void free_snp_data(snp_data* snp_info);
  */
 void free_ind_data(ind_data* ind_info);
 
+/**
+ * @brief frees index linked list
+ */
 void free_idx_list(struct idx_head* head);
 
+/**
+ * @brief frees string linked list
+ */
 void free_str_list(struct str_list_head* head);
 
+/**
+ * @brief frees ind_idx linked list
+ */
 void free_ind_idx_list(struct ind_idx_head* head);
