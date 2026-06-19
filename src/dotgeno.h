@@ -1,6 +1,15 @@
+#ifndef DOTGENO_H
+#define DOTGENO_H
+
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <sys/queue.h>
 #include "khash.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*! @brief NAN value encoding */
 #define NAN_VAL 3
@@ -46,10 +55,6 @@ struct ind_idx_node {
  */
 STAILQ_HEAD(ind_idx_head, ind_idx_node);
 
-// String linker for .ind hashing
-char IND_LINK[20] = "gzvrEy55bcEN0gqRqvL6";
-#define IND_LINK_LEN 20
-
 /**
  *  @brief Hash function for ind_idx for use with khash.h, based on the djb2 hash function
  *
@@ -57,7 +62,11 @@ char IND_LINK[20] = "gzvrEy55bcEN0gqRqvL6";
  *
  *  @return hash value of type khint_t
  */
-khint_t hash_ind_idx(ind_idx ind_idx_struct) {
+static inline khint_t hash_ind_idx(ind_idx ind_idx_struct) {
+	// String linker for .ind hashing
+	char IND_LINK[20] = "gzvrEy55bcEN0gqRqvL6";
+	int IND_LINK_LEN = 20;
+
 	khint_t hash = 5381;
 	
 	// first string
@@ -90,7 +99,7 @@ khint_t hash_ind_idx(ind_idx ind_idx_struct) {
  *
  *  @return hash value of type uint32_t
  */
-uint32_t hash_str(char* str) {
+static inline uint32_t hash_str(char* str) {
 	uint32_t hash_out = 0;
 	size_t str_len = strlen(str);
 	for(int i = 0; i < str_len; i++) {
@@ -519,3 +528,9 @@ void free_str_list(struct str_list_head* head);
  * @brief frees ind_idx linked list
  */
 void free_ind_idx_list(struct ind_idx_head* head);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
