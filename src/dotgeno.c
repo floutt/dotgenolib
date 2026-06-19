@@ -422,7 +422,7 @@ egn_file_reader egn_file_reader_init(char* filename, snp_data* snp_info, ind_dat
 	size_t file_size = get_filesize(filename);
 	ef.idx = 0;
 	if (((ind_info->length + 1) * snp_info->length) != file_size) {
-		fprintf(stderr, "ERROR: Invalid EIGENSTRAT file. Expected file of size %u bytes.\n", (ind_info->length + 1) * snp_info->length);
+		fprintf(stderr, "ERROR: Invalid EIGENSTRAT file. Expected file of size %zu bytes.\n", (ind_info->length + 1) * snp_info->length);
 		exit(EXIT_FAILURE);
 	}
 	ef.fp = safe_read(filename, "rb");
@@ -461,7 +461,7 @@ hdr_data read_pam_header(pam_file_reader* pf) {
 	hdr_data hdr_info;
 	char* hdr = (char*) malloc(sizeof(char) * pf->record_size);
 	fread(hdr, 1, pf->record_size, pf->fp);
-	sscanf(hdr, "GENO   %u %u %x %x", &hdr_info.n_ind, &hdr_info.n_snp, &hdr_info.ind_hash, &hdr_info.snp_hash);
+	sscanf(hdr, "GENO   %zu %zu %x %x", &hdr_info.n_ind, &hdr_info.n_snp, &hdr_info.ind_hash, &hdr_info.snp_hash);
 	free(hdr);
 	pf->is_hdr_read = true;
 	return hdr_info;
@@ -508,7 +508,7 @@ uint8_t* read_egn_record(egn_file_reader* ef) {
 	size_t size = 0;
 	ssize_t nread = getline(&line, &size, ef->fp);
 	if (nread != (ef->n_ind+1)) {
-		fprintf(stderr, "ERROR: improperly formatted EIGENSTRAT geno file. Expected %u entries in line, got % u.\n", ef->n_ind+1, nread);
+		fprintf(stderr, "ERROR: improperly formatted EIGENSTRAT geno file. Expected %zu entries in line, got %lu.\n", ef->n_ind+1, nread);
 		exit(EXIT_FAILURE);
 	}
 	for(size_t i = 0; i < ef->n_ind; i++) {
@@ -586,7 +586,7 @@ void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_in
 		fprintf(stderr, "ERROR: PACKEDANCESTRYMAP file is closed!\n");
 		exit(EXIT_FAILURE);
 	}
-	int num_chars = fprintf(pfw->fp, "GENO   %u %u %x %x", 	pfw->n_ind, pfw->n_snp, ind_info->hash, snp_info->hash);
+	int num_chars = fprintf(pfw->fp, "GENO   %zu %zu %x %x", 	pfw->n_ind, pfw->n_snp, ind_info->hash, snp_info->hash);
 	if(num_chars < 0) {
 		fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.\n");
 		exit(EXIT_FAILURE);
