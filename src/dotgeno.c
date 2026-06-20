@@ -1,3 +1,4 @@
+#define  _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -508,7 +509,7 @@ uint8_t* read_egn_record(egn_file_reader* ef) {
 	size_t size = 0;
 	ssize_t nread = getline(&line, &size, ef->fp);
 	if (nread != (ef->n_ind+1)) {
-		fprintf(stderr, "ERROR: improperly formatted EIGENSTRAT geno file. Expected %zu entries in line, got %lu.\n", ef->n_ind+1, nread);
+		fprintf(stderr, "ERROR: improperly formatted EIGENSTRAT geno file. Expected %zu entries in line, got %li.\n", ef->n_ind+1, nread);
 		exit(EXIT_FAILURE);
 	}
 	for(size_t i = 0; i < ef->n_ind; i++) {

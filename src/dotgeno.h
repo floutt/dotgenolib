@@ -64,8 +64,8 @@ STAILQ_HEAD(ind_idx_head, ind_idx_node);
  */
 static inline khint_t hash_ind_idx(ind_idx ind_idx_struct) {
 	// String linker for .ind hashing
-	char IND_LINK[20] = "gzvrEy55bcEN0gqRqvL6";
 	int IND_LINK_LEN = 20;
+	char IND_LINK[21] = "gzvrEy55bcEN0gqRqvL6";
 
 	khint_t hash = 5381;
 	
@@ -102,7 +102,7 @@ static inline khint_t hash_ind_idx(ind_idx ind_idx_struct) {
 static inline uint32_t hash_str(char* str) {
 	uint32_t hash_out = 0;
 	size_t str_len = strlen(str);
-	for(int i = 0; i < str_len; i++) {
+	for(size_t i = 0; i < str_len; i++) {
 		hash_out *= 23;
 		hash_out += str[i];
 	}
