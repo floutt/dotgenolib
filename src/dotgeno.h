@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/queue.h>
-#include "khash.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,67 +54,11 @@ struct ind_idx_node {
  */
 STAILQ_HEAD(ind_idx_head, ind_idx_node);
 
-/**
- *  @brief Hash function for ind_idx for use with khash.h, based on the djb2 hash function
- *
- *  @param[in] ind_idx_struct ind_idx structure to be hashed
- *
- *  @return hash value of type khint_t
- */
-static inline khint_t hash_ind_idx(ind_idx ind_idx_struct) {
-	// String linker for .ind hashing
-	int IND_LINK_LEN = 20;
-	char IND_LINK[21] = "gzvrEy55bcEN0gqRqvL6";
-
-	khint_t hash = 5381;
-	
-	// first string
-	int len = strlen(ind_idx_struct.ind_id);
-	for(int i = 0; i < len; i++) {
-		hash = ((hash << 5) + hash) + ind_idx_struct.ind_id[i];
-	}
-	
-	// linker string
-	for(int i = 0; i < IND_LINK_LEN; i++) {
-		hash = ((hash << 5) + hash) + IND_LINK[i];
-	}
-
-	// second string
-	len = strlen(ind_idx_struct.ind_pop);
-	for(int i = 0; i < len; i++) {
-		hash = ((hash << 5) + hash) + ind_idx_struct.ind_pop[i];
-	}
-	return hash;
-}
-
-/**
- *  @brief Hash function for single string for use in evaluating integrity of .ind and .snp files
- *
- *  This function is part of the hashing process used for these files. This one operates on
- *  individual IDs or variant IDs. The hash is built as the .snp and .ind files are being read.
- *  See read_snp_file and read_ind_file for more details on their implementation.
- *
- *  @param[in] str string to be hashed
- *
- *  @return hash value of type uint32_t
- */
-static inline uint32_t hash_str(char* str) {
-	uint32_t hash_out = 0;
-	size_t str_len = strlen(str);
-	for(size_t i = 0; i < str_len; i++) {
-		hash_out *= 23;
-		hash_out += str[i];
-	}
-	return(hash_out);
-}
-
-/*! @brief comparison function for ind_idx hash. For use with khash.h */
-#define ind_idx_equal(a, b) ((strcmp((a).ind_id, (b).ind_id) == 0) && strcmp((a).ind_pop, (b).ind_pop) == 0)
-
 /*! @brief string to size_t hash table for use with snp_data structs */
-KHASH_MAP_INIT_STR(ID_MAP_STR, size_t)
+typedef struct id_map_str id_map_str;
+
 /*! @brief ind_idx to size_t hash table for use with ind_data structs */ 
-KHASH_INIT(ID_MAP_IND, ind_idx, size_t, true, hash_ind_idx, ind_idx_equal)
+typedef struct id_map_ind id_map_ind;
 
 /*! @typedef
  * @brief struct containing information encoded in ".snp" files
@@ -128,7 +71,7 @@ typedef struct {
 	uint64_t* pos; /**< Array of genetic base pair positions */
 	char** ref; /**< Array of reference alleles */
 	char** alt; /**< Array of alternative alleles */ 
-	khash_t(ID_MAP_STR)* rev_idx; /**< Hash table which returns index of the given var_id */
+	id_map_str* rev_idx; /**< Hash table which returns index of the given var_id */
 	uint32_t hash; /**< Hash value for struct */
 } snp_data;
 
@@ -140,7 +83,7 @@ typedef struct {
 	char** ind_id; /**< Array of intrapopulation identifiers for individuals */
 	char** sex; /**< Array of sex for individuals */
 	char** population; /**< Array of sex for individuals */
-	khash_t(ID_MAP_IND)* rev_idx; /**< Hash table which returns index of the given ind_idx struct */
+	id_map_ind* rev_idx; /**< Hash table which returns index of the given ind_idx struct */
 	uint32_t hash; /**< Hash value for struct */
 } ind_data;
 

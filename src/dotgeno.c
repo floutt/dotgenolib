@@ -31,7 +31,55 @@
 #define RECORD_ELEMS_PER_BYTE 4
 #define RECORD_ELEMS_MASK_BASE 3
 
-/* BASIC FUNCTIONS */
+/* hash table stuff */
+/**
+ *  @brief Hash function for ind_idx for use with khash.h, based on the djb2 hash function
+ *
+ *  @param[in] ind_idx_struct ind_idx structure to be hashed
+ *
+ *  @return hash value of type khint_t
+ */
+static inline khint_t hash_ind_idx(ind_idx ind_idx_struct) {
+	// String linker for .ind hashing
+	int IND_LINK_LEN = 20;
+	char IND_LINK[21] = "gzvrEy55bcEN0gqRqvL6";
+
+	khint_t hash = 5381;
+	
+	// first string
+	int len = strlen(ind_idx_struct.ind_id);
+	for(int i = 0; i < len; i++) {
+		hash = ((hash << 5) + hash) + ind_idx_struct.ind_id[i];
+	}
+	
+	// linker string
+	for(int i = 0; i < IND_LINK_LEN; i++) {
+		hash = ((hash << 5) + hash) + IND_LINK[i];
+	}
+
+	// second string
+	len = strlen(ind_idx_struct.ind_pop);
+	for(int i = 0; i < len; i++) {
+		hash = ((hash << 5) + hash) + ind_idx_struct.ind_pop[i];
+	}
+	return hash;
+}
+
+/*! @brief comparison function for ind_idx hash. For use with khash.h */
+#define ind_idx_equal(a, b) ((strcmp((a).ind_id, (b).ind_id) == 0) && strcmp((a).ind_pop, (b).ind_pop) == 0)
+
+KHASH_MAP_INIT_STR(ID_MAP_STR, size_t)
+KHASH_INIT(ID_MAP_IND, ind_idx, size_t, true, hash_ind_idx, ind_idx_equal)
+
+struct id_map_str {
+    khash_t(ID_MAP_STR)* map;
+};
+
+struct id_map_ind {
+    khash_t(ID_MAP_IND)* map;
+};
+
+/* BASIC IO FUNCTIONS */
 FILE* safe_read(char* filename, char* mode) {
 	FILE* fp = fopen(filename, mode);
 	if (fp == NULL) {
@@ -85,6 +133,28 @@ char** get_column_elems(char* col_str, size_t ncol) {
 	}
 }
 
+/* Specific EIGENSTRAT and PACKEDANCESTRYMAP functions */
+/**
+ *  @brief Hash function for single string for use in evaluating integrity of .ind and .snp files
+ *
+ *  This function is part of the hashing process used for these files. This one operates on
+ *  individual IDs or variant IDs. The hash is built as the .snp and .ind files are being read.
+ *  See read_snp_file and read_ind_file for more details on their implementation.
+ *
+ *  @param[in] str string to be hashed
+ *
+ *  @return hash value of type uint32_t
+ */
+static inline uint32_t hash_str(char* str) {
+	uint32_t hash_out = 0;
+	size_t str_len = strlen(str);
+	for(size_t i = 0; i < str_len; i++) {
+		hash_out *= 23;
+		hash_out += str[i];
+	}
+	return(hash_out);
+}
+
 snp_data read_snp_file(char* filename) {
 	FILE* fp = safe_read(filename, "r");
 	uint64_t num_snps = get_number_of_lines(filename);
@@ -100,10 +170,10 @@ snp_data read_snp_file(char* filename) {
 		.pos = (uint64_t*) malloc(num_snps * sizeof(uint64_t)),
 		.ref = (char**) malloc(num_snps * sizeof(char*)),
 		.alt = (char**) malloc(num_snps * sizeof(char*)),
-		.rev_idx = kh_init(ID_MAP_STR),
+		.rev_idx = (id_map_str*) malloc(sizeof(id_map_str)),
 		.hash = 0
 	};
-
+	snp_info.rev_idx->map = kh_init(ID_MAP_STR);
 	size_t idx = 0;
 	while((nread = getline(&line, &size, fp)) != -1) {
 		char** elems = get_column_elems(line, SNP_NUM_COLS);
@@ -118,7 +188,7 @@ snp_data read_snp_file(char* filename) {
 		snp_info.hash = snp_info.hash ^ hash_str(snp_info.var_id[idx]);
 		free(elems);
 		int ret;
-		khiter_t k = kh_put(ID_MAP_STR, snp_info.rev_idx, snp_info.var_id[idx], &ret);
+		khiter_t k = kh_put(ID_MAP_STR, snp_info.rev_idx->map, snp_info.var_id[idx], &ret);
 		if(ret == -1) {
 			fprintf(stderr, "Error: Failed to insert variant name into hash table!\n");
 			exit(EXIT_FAILURE);
@@ -126,7 +196,7 @@ snp_data read_snp_file(char* filename) {
 			fprintf(stderr, "Error: Multiple instances of variant %s found in the .snp file.\n", snp_info.var_id[idx]);
 			exit(EXIT_FAILURE);
 		}
-		kh_value(snp_info.rev_idx, k) = idx;
+		kh_value(snp_info.rev_idx->map, k) = idx;
 		idx++;
 	}
 	free(line);
@@ -146,10 +216,10 @@ ind_data read_ind_file(char* filename) {
 		.ind_id = (char**) malloc(num_inds * sizeof(char*)),
 		.sex = (char**) malloc(num_inds * sizeof(char*)),
 		.population = (char**) malloc(num_inds * sizeof(char*)),
-		.rev_idx = kh_init(ID_MAP_IND),
+		.rev_idx = (id_map_ind*) malloc(sizeof(id_map_ind)),
 		.hash = 0
 	};
-
+	ind_info.rev_idx->map = kh_init(ID_MAP_IND);
 	size_t idx = 0;
 	while((nread = getline(&line, &size, fp)) != -1) {
 		char** elems = get_column_elems(line, IND_NUM_COLS);
@@ -162,7 +232,7 @@ ind_data read_ind_file(char* filename) {
 		ind_info.hash = ind_info.hash ^ hash_str(ind_info.ind_id[idx]);
 		int ret;
 		ind_idx ind_idx_struct = (ind_idx){ind_info.ind_id[idx], ind_info.population[idx]};
-		khiter_t k = kh_put(ID_MAP_IND, ind_info.rev_idx, ind_idx_struct, &ret);
+		khiter_t k = kh_put(ID_MAP_IND, ind_info.rev_idx->map, ind_idx_struct, &ret);
 		if(ret == -1) {
 			fprintf(stderr, "Error: Failed to insert individual into hash table!\n");
 			exit(EXIT_FAILURE);
@@ -170,7 +240,7 @@ ind_data read_ind_file(char* filename) {
 			fprintf(stderr, "Error: Multiple instances of individual (%s, %s) found in the .ind file.\n", ind_info.ind_id[idx], ind_info.population[idx]);
 			exit(EXIT_FAILURE);
 		}
-		kh_value(ind_info.rev_idx, k) = idx;
+		kh_value(ind_info.rev_idx->map, k) = idx;
 		idx++;
 	}
 	free(line);
@@ -197,11 +267,11 @@ short write_ind_data(ind_data* ind_info, char* filename) {
 }
 
 short get_snp_idx(snp_data* snp_info, char* var_name, size_t* idx) {
-	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx, var_name);
-	if(k == kh_end(snp_info->rev_idx)) {
+	khint_t k = kh_get(ID_MAP_STR, snp_info->rev_idx->map, var_name);
+	if(k == kh_end(snp_info->rev_idx->map)) {
 		return -1;
 	} else {
-		*idx = kh_value(snp_info->rev_idx, k);
+		*idx = kh_value(snp_info->rev_idx->map, k);
 		return 0;
 	}
 }
@@ -210,11 +280,11 @@ short get_ind_idx(ind_data* ind_info, char* ind_id, char* ind_pop, size_t* idx) 
 	ind_idx iidx;
 	iidx.ind_id = ind_id;
 	iidx.ind_pop = ind_pop; 
-	khint_t k = kh_get(ID_MAP_IND, ind_info->rev_idx, iidx);
-	if(k == kh_end(ind_info->rev_idx)) {
+	khint_t k = kh_get(ID_MAP_IND, ind_info->rev_idx->map, iidx);
+	if(k == kh_end(ind_info->rev_idx->map)) {
 		return -1;
 	} else {
-		*idx = kh_value(ind_info->rev_idx, k);
+		*idx = kh_value(ind_info->rev_idx->map, k);
 		return 0;
 	}
 }
@@ -275,8 +345,9 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 	snp_out->pos = (uint64_t*) malloc(length * sizeof(uint64_t));
 	snp_out->ref = (char**) malloc(length * sizeof(char*));
 	snp_out->alt = (char**) malloc(length * sizeof(char*));
-	snp_out->rev_idx = kh_init(ID_MAP_STR);
+	snp_out->rev_idx = (id_map_str*) malloc(sizeof(id_map_str));
 	snp_out->hash = 0;
+	snp_out->rev_idx->map = kh_init(ID_MAP_STR);
 	size_t i = 0;
 	STAILQ_FOREACH(tmp_node, head, nodes) {
 		// assign values
@@ -291,7 +362,7 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 		snp_out->hash = snp_out->hash ^ hash_str(snp_out->var_id[i]);
 		// reverse index hash table management
 		int ret;
-		khiter_t k = kh_put(ID_MAP_STR, snp_out->rev_idx, snp_out->var_id[i], &ret);
+		khiter_t k = kh_put(ID_MAP_STR, snp_out->rev_idx->map, snp_out->var_id[i], &ret);
 		if(ret == -1) {
 			fprintf(stderr, "Error: Failed to insert variant name into hash table!\n");
 			exit(EXIT_FAILURE);
@@ -299,7 +370,7 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 			fprintf(stderr, "Error: Multiple instances of variant %s found.\n", snp_out->var_id[i]);
 			exit(EXIT_FAILURE);
 		}
-		kh_value(snp_out->rev_idx, k) = i;
+		kh_value(snp_out->rev_idx->map, k) = i;
 		i++;
 	}
 	return 0;
@@ -320,7 +391,8 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 	ind_out->ind_id = (char**) malloc(length * sizeof(char*));
 	ind_out->sex = (char**) malloc(length * sizeof(char*));
 	ind_out->population = (char**) malloc(length * sizeof(char*));
-	ind_out->rev_idx = kh_init(ID_MAP_IND);	
+	ind_out->rev_idx = (id_map_ind*) malloc(sizeof(id_map_ind));
+	ind_out->rev_idx->map = kh_init(ID_MAP_IND);	
 	size_t i = 0;
 	STAILQ_FOREACH(tmp_node, head, nodes) {
 		// assign values
@@ -333,7 +405,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 		// reverse index hash table management
 		int ret;
 		ind_idx ind_idx_struct = (ind_idx){ind_out->ind_id[i], ind_out->population[i]};
-		khiter_t k = kh_put(ID_MAP_IND, ind_out->rev_idx, ind_idx_struct, &ret);
+		khiter_t k = kh_put(ID_MAP_IND, ind_out->rev_idx->map, ind_idx_struct, &ret);
 		if(ret == -1) {
 			fprintf(stderr, "Error: Failed to insert individual into hash table!\n");
 			exit(EXIT_FAILURE);
@@ -341,7 +413,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 			fprintf(stderr, "Error: Multiple instances of individual (%s, %s) found.\n", ind_out->ind_id[i], ind_out->population[i]);
 			exit(EXIT_FAILURE);
 		}
-		kh_value(ind_out->rev_idx, k) = i;
+		kh_value(ind_out->rev_idx->map, k) = i;
 		i++;
 	}
 	return 0;
@@ -380,11 +452,12 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
 	memcpy(ind_out->sex + ind1->length, ind2->sex, ind2->length);
 	memcpy(ind_out->population + ind1->length, ind2->population, ind2->length);
 	// init hash
-	ind_out->rev_idx = kh_init(ID_MAP_IND);
+	ind_out->rev_idx = (id_map_ind*) malloc(sizeof(id_map_ind));
+	ind_out->rev_idx->map = kh_init(ID_MAP_IND);
 	for(size_t idx = 0; idx < ind_out->length; idx++) {
 		int ret;
 		ind_idx ind_idx_struct = (ind_idx){ind_out->ind_id[idx], ind_out->population[idx]};
-		khiter_t k = kh_put(ID_MAP_IND, ind_out->rev_idx, ind_idx_struct, &ret);
+		khiter_t k = kh_put(ID_MAP_IND, ind_out->rev_idx->map, ind_idx_struct, &ret);
 		if(ret == -1) {
 			fprintf(stderr, "Error: Failed to insert individual into hash table!\n");
 			exit(EXIT_FAILURE);
@@ -392,7 +465,7 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
 			fprintf(stderr, "Error: Instances of individual (%s, %s) found in both individual objects.\n", ind_out->ind_id[idx], ind_out->population[idx]);
 			exit(EXIT_FAILURE);
 		}
-		kh_value(ind_out->rev_idx, k) = idx;
+		kh_value(ind_out->rev_idx->map, k) = idx;
 		ind_out->hash *= 17;
 		ind_out->hash = ind_out->hash ^ hash_str(ind_out->ind_id[idx]);
 	}
@@ -693,14 +766,16 @@ void free_snp_data(snp_data* snp_info) {
 	free(snp_info->pos);
 	free_str_array(snp_info->ref, snp_info->length);
 	free_str_array(snp_info->alt, snp_info->length);
-	kh_destroy(ID_MAP_STR, snp_info->rev_idx);
+	kh_destroy(ID_MAP_STR, snp_info->rev_idx->map);
+	free(snp_info->rev_idx);
 }
 
 void free_ind_data(ind_data* ind_info) {
 	free_str_array(ind_info->ind_id, ind_info->length);
 	free_str_array(ind_info->sex, ind_info->length);
 	free_str_array(ind_info->population, ind_info->length);
-	kh_destroy(ID_MAP_IND, ind_info->rev_idx);
+	kh_destroy(ID_MAP_IND, ind_info->rev_idx->map);
+	free(ind_info->rev_idx);
 }
 
 void free_idx_list(struct idx_head* head) {
