@@ -338,7 +338,7 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 		return -1;
 	}
 	// make struct
-	snp_out->length = length,
+	snp_out->length = length;
 	snp_out->var_id = (char**) malloc(length * sizeof(char*));
 	snp_out->chr = (char**) malloc(length * sizeof(char*));
 	snp_out->pos_morgans = (double*) malloc(length * sizeof(double));
@@ -387,7 +387,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 		return -1;
 	}
 	// make struct
-	ind_out->length = length,
+	ind_out->length = length;
 	ind_out->ind_id = (char**) malloc(length * sizeof(char*));
 	ind_out->sex = (char**) malloc(length * sizeof(char*));
 	ind_out->population = (char**) malloc(length * sizeof(char*));
