@@ -429,7 +429,7 @@ size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1
 			idn1->idx = idx1;
 			STAILQ_INSERT_TAIL(head1, idn1, nodes);
 			struct idx_node* idn2 = (struct idx_node*)malloc(sizeof(struct idx_node));
-			idn1->idx = idx2;
+			idn2->idx = idx2;
 			STAILQ_INSERT_TAIL(head2, idn2, nodes);
 			length++;
 		}
