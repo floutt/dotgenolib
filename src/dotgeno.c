@@ -221,7 +221,7 @@ ind_data read_ind_file(char* filename) {
 	};
 	ind_info.rev_idx->map = kh_init(ID_MAP_IND);
 	size_t idx = 0;
-	while((nread = getline(&line, &size, fp)) > 0) {
+	while((nread = getline(&line, &size, fp)) != -1) {
 		char** elems = get_column_elems(line, IND_NUM_COLS);
 		ind_info.ind_id[idx] = strdup(elems[IND_ID_COL]);
 		ind_info.sex[idx] = strdup(elems[IND_SEX_COL]);
