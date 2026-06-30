@@ -458,17 +458,17 @@ void free_snp_data(snp_data* snp_info);
 void free_ind_data(ind_data* ind_info);
 
 /**
- * @brief frees index linked list
+ * @brief empties and frees index linked list
  */
 void free_idx_list(struct idx_head* head);
 
 /**
- * @brief frees string linked list
+ * @brief emptiies and frees string linked list
  */
 void free_str_list(struct str_list_head* head);
 
 /**
- * @brief frees ind_idx linked list
+ * @brief empties and frees ind_idx linked list
  */
 void free_ind_idx_list(struct ind_idx_head* head);
 
