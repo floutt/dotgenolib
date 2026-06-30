@@ -221,7 +221,7 @@ ind_data read_ind_file(char* filename) {
 	};
 	ind_info.rev_idx->map = kh_init(ID_MAP_IND);
 	size_t idx = 0;
-	while((nread = getline(&line, &size, fp)) != -1) {
+	while((nread = getline(&line, &size, fp)) > 0) {
 		char** elems = get_column_elems(line, IND_NUM_COLS);
 		ind_info.ind_id[idx] = strdup(elems[IND_ID_COL]);
 		ind_info.sex[idx] = strdup(elems[IND_SEX_COL]);
@@ -443,18 +443,21 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
 	ind_out->ind_id = (char**) malloc(ind_out->length * sizeof(char*));
 	ind_out->sex = (char**) malloc(ind_out->length * sizeof(char*));
 	ind_out->population = (char**) malloc(ind_out->length * sizeof(char*));
-	// copy ind1 data
-	memcpy(ind_out->ind_id, ind1->ind_id, ind1->length);
-	memcpy(ind_out->sex, ind1->sex, ind1->length);
-	memcpy(ind_out->population, ind1->population, ind1->length);
-	// copy ind2 data
-	memcpy(ind_out->ind_id + ind1->length, ind2->ind_id, ind2->length);
-	memcpy(ind_out->sex + ind1->length, ind2->sex, ind2->length);
-	memcpy(ind_out->population + ind1->length, ind2->population, ind2->length);
 	// init hash
 	ind_out->rev_idx = (id_map_ind*) malloc(sizeof(id_map_ind));
 	ind_out->rev_idx->map = kh_init(ID_MAP_IND);
 	for(size_t idx = 0; idx < ind_out->length; idx++) {
+		// copy ind1
+		if((idx >= 0) && (idx < ind1->length)) {
+			ind_out->ind_id[idx] = strdup(ind1->ind_id[idx]);
+			ind_out->sex[idx] = strdup(ind1->sex[idx]);
+			ind_out->population[idx] = strdup(ind1->population[idx]);
+		// copy ind2
+		} else {
+			ind_out->ind_id[idx] = strdup(ind2->ind_id[idx - ind1->length]);
+			ind_out->sex[idx] = strdup(ind2->sex[idx - ind1->length]);
+			ind_out->population[idx] = strdup(ind2->population[idx - ind1->length]);
+		}
 		int ret;
 		ind_idx ind_idx_struct = (ind_idx){ind_out->ind_id[idx], ind_out->population[idx]};
 		khiter_t k = kh_put(ID_MAP_IND, ind_out->rev_idx->map, ind_idx_struct, &ret);
