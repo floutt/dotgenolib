@@ -8,8 +8,11 @@ PREFIX  ?= /usr/local
 LIBDIR  = $(PREFIX)/lib
 INCDIR  = $(PREFIX)/include
 
-CFLAGS  ?= -std=c17 -Wall -Wextra -Wpedantic -O2 -lm
+CPPFLAGS = -Isrc
+CFLAGS   ?= -std=c17 -Wall -Wextra -Wpedantic -O2
 PICFLAGS = -fPIC
+LDFLAGS  =
+LDLIBS   = -lm
 
 SRC    = src/dotgeno.c
 OBJ    = build/dotgeno.o
@@ -18,7 +21,15 @@ PICOBJ = build/dotgeno.pic.o
 STATIC_LIB = lib$(LIBNAME).a
 SHARED_LIB = lib$(LIBNAME).so
 
-.PHONY: all static shared clean install uninstall
+# Unit tests
+UNITY_SRC = Unity/unity.c
+UNITY_OBJ = build/unity.o
+
+TEST_SRC = test/test.c
+TEST_OBJ = build/test.o
+TEST_BIN = build/test.out
+
+.PHONY: all static shared clean install uninstall test check
 
 all: static shared
 
@@ -30,16 +41,30 @@ build:
 	mkdir -p build
 
 $(OBJ): $(SRC) src/dotgeno.h src/khash.h | build
-	$(CC) $(CFLAGS) -Isrc -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 $(PICOBJ): $(SRC) src/dotgeno.h src/khash.h | build
-	$(CC) $(CFLAGS) $(PICFLAGS) -Isrc -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PICFLAGS) -c $< -o $@
 
 $(STATIC_LIB): $(OBJ)
 	$(AR) $(ARFLAGS) $@ $^
 
 $(SHARED_LIB): $(PICOBJ)
-	$(CC) -shared -o $@ $^
+	$(CC) -shared $(LDFLAGS) -o $@ $^
+
+$(UNITY_OBJ): $(UNITY_SRC) Unity/unity.h Unity/unity_internals.h | build
+	$(CC) $(CFLAGS) -IUnity -c $< -o $@
+
+$(TEST_OBJ): $(TEST_SRC) src/dotgeno.h Unity/unity.h | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -IUnity -c $< -o $@
+
+$(TEST_BIN): $(TEST_OBJ) $(UNITY_OBJ) $(STATIC_LIB)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+test: $(TEST_BIN)
+	./$(TEST_BIN)
+
+check: test
 
 install: all
 	mkdir -p $(DESTDIR)$(LIBDIR)
