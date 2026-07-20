@@ -12,7 +12,7 @@ void tearDown(void) {
 
 size_t get_random_index(size_t length) {
 	srand(time(NULL));
-	return((size_t)rand() % (length + 1));
+	return((size_t)rand() % length);
 }
 
 void test_equality_egn_pam(void) {
