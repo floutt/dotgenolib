@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <sys/queue.h>
+#include <sys/stat.h>
 #include "khash.h"
 #include "dotgeno.h"
 
@@ -90,11 +91,14 @@ FILE* safe_read(char* filename, char* mode) {
 }
 
 size_t get_filesize(char* filename) {
-	FILE* fp = safe_read(filename, "rb");
-	fseek(fp, 0, SEEK_END);
-	size_t file_size = ftell(fp);
-	fclose(fp);
-	return file_size;
+	struct stat st;
+	if(stat(filename, &st) == 0) {
+		return (size_t)st.st_size;
+	}
+	else {
+		fprintf(stderr, "ERROR: cannot obtain file size from file %s\n", filename);
+		exit(EXIT_FAILURE);
+	}
 }
 
 uint64_t get_number_of_lines(char* filename) {
@@ -664,7 +668,7 @@ void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_in
 		fprintf(stderr, "ERROR: PACKEDANCESTRYMAP file is closed!\n");
 		exit(EXIT_FAILURE);
 	}
-	int num_chars = fprintf(pfw->fp, "GENO   %zu %zu %x %x", 	pfw->n_ind, pfw->n_snp, ind_info->hash, snp_info->hash);
+	int num_chars = fprintf(pfw->fp, "GENO   %zu %zu %x %x", pfw->n_ind, pfw->n_snp, ind_info->hash, snp_info->hash);
 	if(num_chars < 0) {
 		fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.\n");
 		exit(EXIT_FAILURE);
@@ -710,13 +714,10 @@ void write_pam_record(pam_file_writer* pfw, uint8_t* dosages) {
 		record_byte = record_byte | ((RECORD_ELEMS_MASK_BASE << shift_by) & (dosages[i] << shift_by));
 	}
 
-	// write last record if not written
-	if((pfw->n_ind % (BITS_IN_BYTE/RECORD_ELEM_SIZE_BITS)) != 0) {
-		int ret = fputc(record_byte, pfw->fp);
-		if(ret == EOF) {
-			fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.\n");
-			exit(EXIT_FAILURE);
-		}
+	int ret = fputc(record_byte, pfw->fp);
+	if(ret == EOF) {
+		fprintf(stderr, "ERROR: unsuccessful write to PACKEDANCESTRYMAP file.\n");
+		exit(EXIT_FAILURE);
 	}
 
 	size_t n_trailing_bytes = pfw->record_size - (int)ceil((float)(pfw->n_ind * RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
