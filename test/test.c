@@ -1,5 +1,8 @@
+#define  _POSIX_C_SOURCE 200809L
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/queue.h>
 #include "unity.h"
 #include "dotgeno.h"
 
@@ -110,7 +113,102 @@ void test_goto_equality_pam_egn(void) {
 		close_pam_file_reader(&pfr);
 		close_egn_file_reader(&efr);
 	}
+}
 
+void test_ind_hash(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/hash_test/total/ind", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char ind_file[37];
+		uint32_t exp_hash;
+		sscanf(buf, "%s %x\n", ind_file, &exp_hash);
+		ind_data ind_info = read_ind_file(ind_file);
+		TEST_ASSERT_EQUAL_UINT32(exp_hash, ind_info.hash);
+		free_ind_data(&ind_info);
+	}
+	free(buf);
+}
+
+void test_snp_hash(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/hash_test/total/snp", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char snp_file[37];
+		uint32_t exp_hash;
+		sscanf(buf, "%s %x\n", snp_file, &exp_hash);
+		snp_data snp_info = read_snp_file(snp_file);
+		TEST_ASSERT_EQUAL_UINT32(exp_hash, snp_info.hash);
+		free_snp_data(&snp_info);
+	}
+	free(buf);
+}
+
+void test_ind_filtered_hash(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/hash_test/filtered/ind", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char ind_file[37];
+		uint32_t exp_hash;
+		char* idx_str = malloc(sizeof(char) * ((bufsize - 46) + 1));
+		sscanf(buf, "%s\t%s\t%x\n", ind_file, idx_str, &exp_hash);
+		ind_data ind_info = read_ind_file(ind_file);
+		
+		// init idx list
+		struct idx_head head;
+		STAILQ_INIT(&head);
+		char* elem = strtok(idx_str, ","); 
+		// add elems
+		while(elem) {
+			struct idx_node* node = malloc(sizeof(struct idx_node));
+			node->idx = atoi(elem);
+			STAILQ_INSERT_TAIL(&head, node, nodes);
+			elem = strtok(NULL, ",");
+		}
+		ind_data ind_filt;
+		short ret = filter_ind_data(&ind_info, &ind_filt, &head);
+		if(ret == -1) { TEST_FAIL(); }
+		TEST_ASSERT_EQUAL_UINT32(exp_hash, ind_filt.hash);
+		free_ind_data(&ind_info);
+		free(idx_str);
+		free_idx_list(&head);
+	}
+	free(buf);
+}
+
+void test_snp_filtered_hash(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/hash_test/filtered/snp", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char snp_file[37];
+		uint32_t exp_hash;
+		char* idx_str = malloc(sizeof(char) * ((bufsize - 46) + 1));
+		sscanf(buf, "%s\t%s\t%x\n", snp_file, idx_str, &exp_hash);
+		snp_data snp_info = read_snp_file(snp_file);
+		
+		// init idx list
+		struct idx_head head;
+		STAILQ_INIT(&head);
+		char* elem = strtok(idx_str, ","); 
+		// add elems
+		while(elem) {
+			struct idx_node* node = malloc(sizeof(struct idx_node));
+			node->idx = atoi(elem);
+			STAILQ_INSERT_TAIL(&head, node, nodes);
+			elem = strtok(NULL, ",");
+		}
+		snp_data snp_filt;
+		short ret = filter_snp_data(&snp_info, &snp_filt, &head);
+		if(ret == -1) { TEST_FAIL(); }
+		TEST_ASSERT_EQUAL_UINT32(exp_hash, snp_filt.hash);
+		free_snp_data(&snp_info);
+		free(idx_str);
+		free_idx_list(&head);
+	}
+	free(buf);
 }
 
 // not needed when using generate_test_runner.rb
@@ -118,5 +216,9 @@ int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_equality_egn_pam);
 	RUN_TEST(test_goto_equality_pam_egn);
+	RUN_TEST(test_ind_hash);
+	RUN_TEST(test_snp_hash);
+	RUN_TEST(test_ind_filtered_hash);
+	RUN_TEST(test_snp_filtered_hash);
     return UNITY_END();
 }
