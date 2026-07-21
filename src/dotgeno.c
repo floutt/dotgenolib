@@ -392,7 +392,8 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 	ind_out->sex = (char**) malloc(length * sizeof(char*));
 	ind_out->population = (char**) malloc(length * sizeof(char*));
 	ind_out->rev_idx = (id_map_ind*) malloc(sizeof(id_map_ind));
-	ind_out->rev_idx->map = kh_init(ID_MAP_IND);	
+	ind_out->hash = 0;
+	ind_out->rev_idx->map = kh_init(ID_MAP_IND);
 	size_t i = 0;
 	STAILQ_FOREACH(tmp_node, head, nodes) {
 		// assign values
