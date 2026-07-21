@@ -410,7 +410,7 @@ hdr_data read_pam_header(pam_file_reader* pf);
  *
  * @param[in,out] pf pointer to pam_file_reader object
  *
- * @return array of allelic dosages of length pf->length. Dosages must be either 0,1,2, or NAN_VAL.
+ * @return array of allelic dosages of length pf->length or NULL pointer once all records have been read. Dosages must be either 0,1,2, or NAN_VAL.
  */
 uint8_t* read_pam_record(pam_file_reader* pf);
 
@@ -419,7 +419,7 @@ uint8_t* read_pam_record(pam_file_reader* pf);
  *
  * @param[in,out] ef pointer to egn_file_reader object
  *
- * @return array of allelic dosages of length ef->length. Dosages must be either 0,1,2, or NAN_VAL.
+ * @return array of allelic dosages of length ef->length or NULL pointer once all records have been read. Dosages must be either 0,1,2, or NAN_VAL.
  */
 uint8_t* read_egn_record(egn_file_reader* ef);
 
