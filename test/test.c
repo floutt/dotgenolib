@@ -6,11 +6,11 @@
 #include "unity.h"
 #include "dotgeno.h"
 
-
-void setUp(void) {
-}
+void setUp(void) { }
 
 void tearDown(void) {
+	remove("/tmp/tmppam.geno");
+	remove("/tmp/tmpegn.geno");
 }
 
 size_t get_random_index(size_t length) {
@@ -196,6 +196,7 @@ void test_snp_filtered_hash(void) {
 		// add elems
 		while(elem) {
 			struct idx_node* node = malloc(sizeof(struct idx_node));
+
 			node->idx = atoi(elem);
 			STAILQ_INSERT_TAIL(&head, node, nodes);
 			elem = strtok(NULL, ",");
@@ -549,6 +550,66 @@ void test_append_ind(void) {
 	}
 }
 
+void test_intersect_snp(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/snp_isct/snp_isct.tsv", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char* file1;
+		char* file2;
+		char* idx_str1;
+		char* idx_str2;
+		size_t cur_beg = 0;
+		int n_col = 0;
+		for(size_t c_i = 0; c_i < bufsize; c_i++) {
+			if((buf[c_i] == '\t') || buf[c_i] == '\n') {
+				buf[c_i] = '\0';
+				switch(n_col) {
+					case 0:
+						file1 = &buf[cur_beg];
+						break;
+					case 1:
+						file2 = &buf[cur_beg];
+						break;
+					case 2:
+						idx_str1 = &buf[cur_beg];
+						break;
+					case 3:
+						idx_str2 = &buf[cur_beg];
+						break;
+				}
+				cur_beg = c_i + 1;
+				n_col++;
+			}
+		}
+
+		snp_data snp1 = read_snp_file(file1);
+		snp_data snp2 = read_snp_file(file2);
+		struct idx_head head_idx1;
+		struct idx_head head_idx2;
+		STAILQ_INIT(&head_idx1);
+		STAILQ_INIT(&head_idx2);
+		intersect_snp_data(&snp1, &snp2, &head_idx1, &head_idx2);
+		struct idx_node* in;
+		size_t i = 0;
+		STAILQ_FOREACH(in, &head_idx1, nodes) {
+			size_t elem_exp;
+			if(i == 0) {
+				elem_exp = atoi(strtok(idx_str1, ","));
+			} else {
+				elem_exp = atoi(strtok(NULL, ","));
+			}
+			TEST_ASSERT_EQUAL_UINT(elem_exp, in->idx);
+			i++;
+		}
+
+		free_snp_data(&snp1);
+		free_snp_data(&snp2);
+		free_idx_list(&head_idx1);
+		free_idx_list(&head_idx2);
+	}
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_equality_egn_pam);
@@ -565,5 +626,6 @@ int main(void) {
 	RUN_TEST(test_multiple_index_ind);
 	RUN_TEST(test_multiple_index_in_ind_file);
 	RUN_TEST(test_append_ind);
+	test_intersect_snp();
     return UNITY_END();
 }
