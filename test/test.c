@@ -211,7 +211,344 @@ void test_snp_filtered_hash(void) {
 	free(buf);
 }
 
-// not needed when using generate_test_runner.rb
+void test_read_write_eqv_pam(void) {
+	char* file_base = "test/data/PAM_EGN/pam_example_%i.%s";
+	char buf[38];
+    int n_sets = 20;
+	for(int i = 1; i <= n_sets; i++) {
+		sprintf(buf, file_base, i, "snp");
+		snp_data snp_info = read_snp_file(buf);
+		sprintf(buf, file_base, i, "ind");
+		ind_data ind_info = read_ind_file(buf);
+		sprintf(buf, file_base, i, "geno");
+		pam_file_reader pfr = pam_file_reader_init(buf, &snp_info, &ind_info);
+		read_pam_header(&pfr);
+
+		pam_file_writer pfw = pam_file_writer_init("/tmp/tmppam.geno", &snp_info, &ind_info);
+		write_pam_header(&pfw, &snp_info, &ind_info);
+
+		uint8_t* record;
+		while(record = read_pam_record(&pfr)) {
+			write_pam_record(&pfw, record);
+			free(record);
+		}
+		TEST_ASSERT_EQUAL_INT(pfr.n_snp, pfw.n_written_snp);
+		close_pam_file_writer(&pfw);
+		close_pam_file_reader(&pfr);
+
+		pam_file_reader pfr_in = pam_file_reader_init(buf, &snp_info, &ind_info);
+		pam_file_reader pfr_out = pam_file_reader_init("/tmp/tmppam.geno", &snp_info, &ind_info);
+		TEST_ASSERT_EQUAL_INT(pfr_in.n_snp, pfr_out.n_snp);
+		TEST_ASSERT_EQUAL_INT(pfr_in.n_ind, pfr_out.n_ind);
+		
+		hdr_data hdr1 = read_pam_header(&pfr_in);
+		hdr_data hdr2 = read_pam_header(&pfr_out);
+		TEST_ASSERT_EQUAL_INT(hdr1.n_ind, hdr2.n_ind);
+		TEST_ASSERT_EQUAL_INT(hdr1.n_snp, hdr2.n_snp);
+		TEST_ASSERT_EQUAL_UINT32(hdr1.ind_hash, hdr2.ind_hash);
+		TEST_ASSERT_EQUAL_UINT32(hdr1.snp_hash, hdr2.snp_hash);
+		uint8_t* record1;
+		uint8_t* record2;
+		while(1) {
+			record1 = read_pam_record(&pfr_in);
+			record2 = read_pam_record(&pfr_out);
+			if(record1 == NULL) {
+				if(record2) {
+					TEST_FAIL();
+				}
+				break;
+			}
+			TEST_ASSERT_EQUAL_UINT8_ARRAY(record1, record2, ind_info.length);
+			free(record1);
+			free(record2);
+		}
+		free_snp_data(&snp_info);
+		free_ind_data(&ind_info);
+	}
+}
+
+void test_read_write_eqv_egn(void) {
+	char* file_base = "test/data/PAM_EGN/egn_example_%i.%s";
+	char buf[38];
+    int n_sets = 20;
+	for(int i = 1; i <= n_sets; i++) {
+		sprintf(buf, file_base, i, "snp");
+		snp_data snp_info = read_snp_file(buf);
+		sprintf(buf, file_base, i, "ind");
+		ind_data ind_info = read_ind_file(buf);
+		sprintf(buf, file_base, i, "geno");
+		egn_file_reader pfr = egn_file_reader_init(buf, &snp_info, &ind_info);
+
+		egn_file_writer pfw = egn_file_writer_init("/tmp/tmpegn.geno", &snp_info, &ind_info);
+
+		uint8_t* record;
+		while(record = read_egn_record(&pfr)) {
+			write_egn_record(&pfw, record);
+			free(record);
+		}
+		TEST_ASSERT_EQUAL_INT(pfr.n_snp, pfw.n_written_snp);
+		close_egn_file_writer(&pfw);
+		close_egn_file_reader(&pfr);
+
+		egn_file_reader pfr_in = egn_file_reader_init(buf, &snp_info, &ind_info);
+		egn_file_reader pfr_out = egn_file_reader_init("/tmp/tmpegn.geno", &snp_info, &ind_info);
+		TEST_ASSERT_EQUAL_INT(pfr_in.n_snp, pfr_out.n_snp);
+		TEST_ASSERT_EQUAL_INT(pfr_in.n_ind, pfr_out.n_ind);
+		
+		uint8_t* record1;
+		uint8_t* record2;
+		while(1) {
+			record1 = read_egn_record(&pfr_in);
+			record2 = read_egn_record(&pfr_out);
+			if(record1 == NULL) {
+				if(record2) {
+					TEST_FAIL();
+				}
+				break;
+			}
+			TEST_ASSERT_EQUAL_UINT8_ARRAY(record1, record2, ind_info.length);
+			free(record1);
+			free(record2);
+		}
+		free_snp_data(&snp_info);
+		free_ind_data(&ind_info);
+	}
+}
+
+void test_get_idx_snp(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/single_index_test/snp", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char snp_file[37];
+		char var_name[100];
+		size_t idx_exp;
+		sscanf(buf, "%s\t%s\t%lu\n", snp_file, var_name, &idx_exp);
+		snp_data snp_info = read_snp_file(snp_file);
+		size_t idx_actual;
+		short ret = get_snp_idx(&snp_info, var_name, &idx_actual);
+		if(ret == -1) { TEST_FAIL(); }
+		TEST_ASSERT_EQUAL_INT(idx_exp, idx_actual);
+		// now test that a gibberish var_name fails
+		ret = get_snp_idx(&snp_info, "GIBBERISHGIBBERGABER", &idx_actual);
+		if(ret == 0) { TEST_FAIL(); }
+	}
+	free(buf);
+}
+
+void test_get_idx_ind(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/single_index_test/ind", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char ind_file[37];
+		char idx_str[100];
+		size_t idx_exp;
+		sscanf(buf, "%s\t%s\t%lu\n", ind_file, idx_str, &idx_exp);
+
+		// split string
+		int len_idx_str = strlen(idx_str);
+		int split_pos;
+		for(int i = 0; i < len_idx_str; i++) {
+			if(idx_str[i] == ',') {
+				split_pos = i;
+				idx_str[i] = '\0';
+			}
+		}
+		// store info here
+		char* ind_id = idx_str;
+		char* ind_pop = &idx_str[split_pos + 1];	
+		ind_data ind_info = read_ind_file(ind_file);
+		size_t idx_actual;
+		short ret = get_ind_idx(&ind_info, ind_id, ind_pop, &idx_actual);
+		if(ret == -1) { TEST_FAIL(); }
+		TEST_ASSERT_EQUAL_INT(idx_exp, idx_actual);
+		// now test that a gibberish var_name fails
+		ret = get_ind_idx(&ind_info, "GUhjdshjdchjdhj", "hjfdhjjhj", &idx_actual);
+		if(ret == 0) { TEST_FAIL(); }
+	}
+	free(buf);
+}
+
+void test_multiple_index_snp(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/multiple_index_test/snp", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char snp_file[37];
+		size_t n_elems;
+		sscanf(buf, "%s\t%lu\t%*s\t%*s\n", snp_file, &n_elems);
+		char** snp_names = malloc(sizeof(char*) * n_elems);
+		size_t* exp_idx = malloc(sizeof(size_t) * n_elems);
+		char snp_str[10000];
+		char idx_str[10000];
+		sscanf(buf, "%*s\t%*lu\t%s\t%s\n", snp_str, idx_str);
+		
+		char* elem = strtok(snp_str, ",");
+		size_t i = 0;
+		while(elem) {
+			snp_names[i] = strdup(elem);
+			elem = strtok(NULL, ",");
+			i++;
+		}
+		if(strcmp(idx_str, "NA") != 0) {
+			elem = strtok(idx_str, ",");
+			i = 0;
+			while(elem) {
+				exp_idx[i] = atoi(elem);
+				elem = strtok(NULL, ",");
+				i++;
+			}
+		}
+		struct idx_head head;
+		STAILQ_INIT(&head);
+		snp_data snp_info = read_snp_file(snp_file);
+		get_multiple_snp_idx(&snp_info, snp_names, n_elems, &head, NULL);
+		
+		struct idx_node* in;
+		if(strcmp(idx_str, "NA") == 0) {
+			TEST_ASSERT_TRUE(STAILQ_EMPTY(&head));
+		} else {
+			i = 0;
+			STAILQ_FOREACH(in, &head, nodes) {
+				TEST_ASSERT_EQUAL_UINT(exp_idx[i], in->idx);
+				i++;
+			}
+		}
+		free_snp_data(&snp_info);
+		free_idx_list(&head);
+	}
+	free(buf);
+	fclose(fp);
+}
+
+void test_multiple_index_ind(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/multiple_index_test/ind", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char* ind_file;
+		size_t n_elems;
+		char* ind_str;
+		char* pop_str;
+		char* idx_str;
+		size_t cur_beg = 0;
+		int n_col = 0;
+		// split string
+		for(size_t c_i = 0; c_i < bufsize; c_i++) {
+			if((buf[c_i] == '\t') || buf[c_i] == '\n') {
+				buf[c_i] = '\0';
+				switch(n_col) {
+					case 0:
+						ind_file = &buf[cur_beg];
+						break;
+					case 1:
+						n_elems = atoi(&buf[cur_beg]);
+						break;
+					case 2:
+						ind_str = &buf[cur_beg];
+						break;
+					case 3:
+						pop_str = &buf[cur_beg];
+						break;
+					case 4:
+						 idx_str = &buf[cur_beg];
+						 break;
+				}
+				cur_beg = c_i + 1;
+				n_col++;
+			}
+		}
+
+		char** ind_names = malloc(sizeof(char*) * n_elems);
+		char** pop_names = malloc(sizeof(char*) * n_elems);
+		size_t* exp_idx = malloc(sizeof(size_t) * n_elems);
+	
+		char* elem = strtok(ind_str, ",");
+		size_t i = 0;
+		while(elem) {
+			ind_names[i] = strdup(elem);
+			elem = strtok(NULL, ",");
+			i++;
+		}
+
+		elem = strtok(pop_str, ",");
+		i = 0;
+		while(elem) {
+			pop_names[i] = strdup(elem);
+			elem = strtok(NULL, ",");
+			i++;
+		}
+
+		if(strcmp(idx_str, "NA") != 0) {
+			elem = strtok(idx_str, ",");
+			i = 0;
+			while(elem) {
+				exp_idx[i] = atoi(elem);
+				elem = strtok(NULL, ",");
+				i++;
+			}
+		}
+		
+		struct idx_head head;
+		STAILQ_INIT(&head);
+		ind_data ind_info = read_ind_file(ind_file);
+		get_multiple_ind_idx(&ind_info, ind_names, pop_names, n_elems, &head, NULL);
+		struct idx_node* in;
+		if(strcmp(idx_str, "NA") == 0) {
+			TEST_ASSERT_TRUE(STAILQ_EMPTY(&head));
+		} else {
+			i = 0;
+			STAILQ_FOREACH(in, &head, nodes) {
+				TEST_ASSERT_EQUAL_UINT(exp_idx[i], in->idx);
+				i++;
+			}
+		}
+		free_ind_data(&ind_info);
+		free_idx_list(&head);
+	}
+	free(buf);
+	fclose(fp);
+}
+
+void test_multiple_index_in_ind_file(void) {
+	for(int i = 1; i <= 10; i++) {
+		char ind_file[46];
+		sprintf(ind_file, "test/data/multidim_ind/multi_index_ind_%d.ind", i);
+		ind_data ind_info = read_ind_file(ind_file);
+		TEST_ASSERT_TRUE(ind_info.length > 0);
+		free_ind_data(&ind_info);
+	}
+}
+
+void test_append_ind(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/append_ind/append_table.tsv", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char* file1 = strtok(buf, "\t\n");
+		char* file2 = strtok(NULL, "\t\n");
+		char* file_exp = strtok(NULL, "\t\n");
+
+		ind_data ind1 = read_ind_file(file1);
+		ind_data ind2 = read_ind_file(file2);
+		ind_data ind_exp = read_ind_file(file_exp);
+		ind_data ind_actual;
+
+		append_ind_data(&ind1, &ind2, &ind_actual);
+		TEST_ASSERT_EQUAL_UINT(ind_exp.length, ind_actual.length);
+		TEST_ASSERT_EQUAL_UINT32(ind_exp.hash, ind_actual.hash);
+		TEST_ASSERT_EQUAL_STRING_ARRAY(ind_exp.ind_id, ind_actual.ind_id, ind_actual.length);
+		TEST_ASSERT_EQUAL_STRING_ARRAY(ind_exp.sex, ind_actual.sex, ind_actual.length);
+		TEST_ASSERT_EQUAL_STRING_ARRAY(ind_exp.population, ind_actual.population, ind_actual.length);
+
+		free_ind_data(&ind1);
+		free_ind_data(&ind2);
+		free_ind_data(&ind_exp);
+		free_ind_data(&ind_actual);
+	}
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_equality_egn_pam);
@@ -220,5 +557,13 @@ int main(void) {
 	RUN_TEST(test_snp_hash);
 	RUN_TEST(test_ind_filtered_hash);
 	RUN_TEST(test_snp_filtered_hash);
+	RUN_TEST(test_read_write_eqv_pam);
+	RUN_TEST(test_read_write_eqv_egn);
+	RUN_TEST(test_get_idx_snp);
+	RUN_TEST(test_get_idx_ind);
+	RUN_TEST(test_multiple_index_snp);
+	RUN_TEST(test_multiple_index_ind);
+	RUN_TEST(test_multiple_index_in_ind_file);
+	RUN_TEST(test_append_ind);
     return UNITY_END();
 }
