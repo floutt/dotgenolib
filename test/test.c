@@ -158,13 +158,13 @@ void test_ind_filtered_hash(void) {
 		
 		// init idx list
 		struct idx_head head;
-		STAILQ_INIT(&head);
+		TAILQ_INIT(&head);
 		char* elem = strtok(idx_str, ","); 
 		// add elems
 		while(elem) {
 			struct idx_node* node = malloc(sizeof(struct idx_node));
 			node->idx = atoi(elem);
-			STAILQ_INSERT_TAIL(&head, node, nodes);
+			TAILQ_INSERT_TAIL(&head, node, nodes);
 			elem = strtok(NULL, ",");
 		}
 		ind_data ind_filt;
@@ -191,14 +191,14 @@ void test_snp_filtered_hash(void) {
 		
 		// init idx list
 		struct idx_head head;
-		STAILQ_INIT(&head);
+		TAILQ_INIT(&head);
 		char* elem = strtok(idx_str, ","); 
 		// add elems
 		while(elem) {
 			struct idx_node* node = malloc(sizeof(struct idx_node));
 
 			node->idx = atoi(elem);
-			STAILQ_INSERT_TAIL(&head, node, nodes);
+			TAILQ_INSERT_TAIL(&head, node, nodes);
 			elem = strtok(NULL, ",");
 		}
 		snp_data snp_filt;
@@ -402,16 +402,16 @@ void test_multiple_index_snp(void) {
 			}
 		}
 		struct idx_head head;
-		STAILQ_INIT(&head);
+		TAILQ_INIT(&head);
 		snp_data snp_info = read_snp_file(snp_file);
 		get_multiple_snp_idx(&snp_info, snp_names, n_elems, &head, NULL);
 		
 		struct idx_node* in;
 		if(strcmp(idx_str, "NA") == 0) {
-			TEST_ASSERT_TRUE(STAILQ_EMPTY(&head));
+			TEST_ASSERT_TRUE(TAILQ_EMPTY(&head));
 		} else {
 			i = 0;
-			STAILQ_FOREACH(in, &head, nodes) {
+			TAILQ_FOREACH(in, &head, nodes) {
 				TEST_ASSERT_EQUAL_UINT(exp_idx[i], in->idx);
 				i++;
 			}
@@ -492,15 +492,15 @@ void test_multiple_index_ind(void) {
 		}
 		
 		struct idx_head head;
-		STAILQ_INIT(&head);
+		TAILQ_INIT(&head);
 		ind_data ind_info = read_ind_file(ind_file);
 		get_multiple_ind_idx(&ind_info, ind_names, pop_names, n_elems, &head, NULL);
 		struct idx_node* in;
 		if(strcmp(idx_str, "NA") == 0) {
-			TEST_ASSERT_TRUE(STAILQ_EMPTY(&head));
+			TEST_ASSERT_TRUE(TAILQ_EMPTY(&head));
 		} else {
 			i = 0;
-			STAILQ_FOREACH(in, &head, nodes) {
+			TAILQ_FOREACH(in, &head, nodes) {
 				TEST_ASSERT_EQUAL_UINT(exp_idx[i], in->idx);
 				i++;
 			}
@@ -587,12 +587,12 @@ void test_intersect_snp(void) {
 		snp_data snp2 = read_snp_file(file2);
 		struct idx_head head_idx1;
 		struct idx_head head_idx2;
-		STAILQ_INIT(&head_idx1);
-		STAILQ_INIT(&head_idx2);
+		TAILQ_INIT(&head_idx1);
+		TAILQ_INIT(&head_idx2);
 		intersect_snp_data(&snp1, &snp2, &head_idx1, &head_idx2);
 		struct idx_node* in;
 		size_t i = 0;
-		STAILQ_FOREACH(in, &head_idx1, nodes) {
+		TAILQ_FOREACH(in, &head_idx1, nodes) {
 			size_t elem_exp;
 			if(i == 0) {
 				elem_exp = atoi(strtok(idx_str1, ","));

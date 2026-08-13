@@ -26,33 +26,33 @@ typedef struct {
 
 struct idx_node {
 	size_t idx;
-	STAILQ_ENTRY(idx_node) nodes;
+	TAILQ_ENTRY(idx_node) nodes;
 };
 
 /*
  * @brief queue.h linked list head for ind_data and snp_data indices
  */
-STAILQ_HEAD(idx_head, idx_node);
+TAILQ_HEAD(idx_head, idx_node);
 
 struct str_node {
 	char* str;
-	STAILQ_ENTRY(str_node) nodes;
+	TAILQ_ENTRY(str_node) nodes;
 };
 
 /*
  * @brief queue.h linked list head for strings
  */
-STAILQ_HEAD(str_list_head, str_node);
+TAILQ_HEAD(str_list_head, str_node);
 
 struct ind_idx_node {
 	ind_idx* iidx;
-	STAILQ_ENTRY(ind_idx_node) nodes;
+	TAILQ_ENTRY(ind_idx_node) nodes;
 };
 
 /*
  * @brief queue.h linked list head for storing ind_idx objects
  */
-STAILQ_HEAD(ind_idx_head, ind_idx_node);
+TAILQ_HEAD(ind_idx_head, ind_idx_node);
 
 /*! @brief string to size_t hash table for use with snp_data structs */
 typedef struct id_map_str id_map_str;

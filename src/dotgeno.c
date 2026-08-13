@@ -301,13 +301,13 @@ void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, s
 			if(head_str) {
 				struct str_node* stn = (struct str_node*)malloc(sizeof(struct str_node));
 				stn->str = strdup(var_names[i]);
-				STAILQ_INSERT_TAIL(head_str, stn, nodes);
+				TAILQ_INSERT_TAIL(head_str, stn, nodes);
 			}
 			continue;
 		}
 		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
 		idn->idx = idx;
-		STAILQ_INSERT_TAIL(head_idx, idn, nodes);
+		TAILQ_INSERT_TAIL(head_idx, idn, nodes);
 	}
 }
 
@@ -321,13 +321,13 @@ void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, s
 				idn->iidx = (ind_idx*)malloc(sizeof(ind_idx));
 				idn->iidx->ind_id = strdup(ind_ids[i]);
 				idn->iidx->ind_pop = strdup(ind_pops[i]);
-				STAILQ_INSERT_TAIL(head_iidx, idn, nodes);
+				TAILQ_INSERT_TAIL(head_iidx, idn, nodes);
 			}
 			continue;
 		}
 		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
 		idn->idx = idx;
-		STAILQ_INSERT_TAIL(head_idx, idn, nodes);
+		TAILQ_INSERT_TAIL(head_idx, idn, nodes);
 	}
 }
 
@@ -335,7 +335,7 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 	// get length
 	size_t length = 0;
 	struct idx_node* tmp_node;
-	STAILQ_FOREACH(tmp_node, head, nodes) {
+	TAILQ_FOREACH(tmp_node, head, nodes) {
 		length++;
 	}
 	if(length == 0) {
@@ -353,7 +353,7 @@ short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head
 	snp_out->hash = 0;
 	snp_out->rev_idx->map = kh_init(ID_MAP_STR);
 	size_t i = 0;
-	STAILQ_FOREACH(tmp_node, head, nodes) {
+	TAILQ_FOREACH(tmp_node, head, nodes) {
 		// assign values
 		snp_out->var_id[i] = strdup(snp_in->var_id[tmp_node->idx]);
 		snp_out->chr[i] = strdup(snp_in->chr[tmp_node->idx]);
@@ -384,7 +384,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 	// get length
 	size_t length = 0;
 	struct idx_node* tmp_node;
-	STAILQ_FOREACH(tmp_node, head, nodes) {
+	TAILQ_FOREACH(tmp_node, head, nodes) {
 		length++;
 	}
 	if(length == 0) {
@@ -399,7 +399,7 @@ short filter_ind_data(ind_data* ind_in, ind_data* ind_out, struct idx_head* head
 	ind_out->hash = 0;
 	ind_out->rev_idx->map = kh_init(ID_MAP_IND);
 	size_t i = 0;
-	STAILQ_FOREACH(tmp_node, head, nodes) {
+	TAILQ_FOREACH(tmp_node, head, nodes) {
 		// assign values
 		ind_out->ind_id[i] = strdup(ind_in->ind_id[tmp_node->idx]);
 		ind_out->sex[i] = strdup(ind_in->sex[tmp_node->idx]);
@@ -432,10 +432,10 @@ size_t intersect_snp_data(snp_data* snp1, snp_data* snp2, struct idx_head* head1
 		if(ret == 0) {
 			struct idx_node* idn1 = (struct idx_node*)malloc(sizeof(struct idx_node));
 			idn1->idx = idx1;
-			STAILQ_INSERT_TAIL(head1, idn1, nodes);
+			TAILQ_INSERT_TAIL(head1, idn1, nodes);
 			struct idx_node* idn2 = (struct idx_node*)malloc(sizeof(struct idx_node));
 			idn2->idx = idx2;
-			STAILQ_INSERT_TAIL(head2, idn2, nodes);
+			TAILQ_INSERT_TAIL(head2, idn2, nodes);
 			length++;
 		}
 	}
@@ -784,26 +784,26 @@ void free_ind_data(ind_data* ind_info) {
 }
 
 void free_idx_list(struct idx_head* head) {
-	while(!STAILQ_EMPTY(head)) {
-		struct idx_node* tmp = STAILQ_FIRST(head);
-		STAILQ_REMOVE_HEAD(head, nodes);
+	while(!TAILQ_EMPTY(head)) {
+		struct idx_node* tmp = TAILQ_FIRST(head);
+		TAILQ_REMOVE(head, TAILQ_FIRST(head), nodes);
 		free(tmp);
 	}
 }
 
 void free_str_list(struct str_list_head* head) {
-	while(!STAILQ_EMPTY(head)) {
-		struct str_node* tmp = STAILQ_FIRST(head);
-		STAILQ_REMOVE_HEAD(head, nodes);
+	while(!TAILQ_EMPTY(head)) {
+		struct str_node* tmp = TAILQ_FIRST(head);
+		TAILQ_REMOVE(head, TAILQ_FIRST(head), nodes);
 		free(tmp->str);
 		free(tmp);
 	}
 }
 
 void free_ind_idx_list(struct ind_idx_head* head) {
-	while(!STAILQ_EMPTY(head)) {
-		struct ind_idx_node* tmp = STAILQ_FIRST(head);
-		STAILQ_REMOVE_HEAD(head, nodes);
+	while(!TAILQ_EMPTY(head)) {
+		struct ind_idx_node* tmp = TAILQ_FIRST(head);
+		TAILQ_REMOVE(head, TAILQ_FIRST(head), nodes);
 		free(tmp->iidx->ind_id);
 		free(tmp->iidx->ind_pop);
 		free(tmp->iidx);
