@@ -260,6 +260,10 @@ void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, s
  */
 void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head_idx, struct ind_idx_head* head_iidx);
 
+
+// DOCUMENT THIS DOCUMENT THIS DOCUMENT THIS
+void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struct idx_head* head_idx, struct str_list_head* head_nopop);
+
 /**
  * @brief filters snp_data object to only those elements found in the provided list
  *

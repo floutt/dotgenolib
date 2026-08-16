@@ -331,6 +331,49 @@ void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, s
 	}
 }
 
+// TEST THIS
+void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struct idx_head* head_idx, struct str_list_head* head_nopop) {
+	// make population set
+	khash_t(ID_MAP_STR)* pop_set = kh_init(ID_MAP_STR);
+	for(size_t i = 0; i < length; i++) {
+		int ret;
+		khiter_t k = kh_put(ID_MAP_STR, pop_set, ind_pops[i], &ret);
+		if(ret == -1) {
+			fprintf(stderr, "Error: Failed to insert variant name into hash table!\n");
+			exit(EXIT_FAILURE);
+		}
+		// initialize as 0
+		kh_value(pop_set, k) = 0;
+	}
+
+	// now it's time to search the ind object
+	for(size_t i = 0; i < ind_info->length; i++) {
+		khint_t k = kh_get(ID_MAP_STR, pop_set, ind_info->population[i]);
+		if(k == kh_end(pop_set)) {
+			continue;
+		} else {
+			// add to counter
+			kh_value(pop_set, k) = kh_value(pop_set, k) + 1;
+		}
+		// add struct if it is in one of the populations
+		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
+		idn->idx = i;
+		TAILQ_INSERT_TAIL(head_idx, idn, nodes);
+	}
+	// now get populations which weren't included
+	if(head_nopop) {
+		for(size_t i = 0; i < length; i++) {
+			khint_t k = kh_get(ID_MAP_STR, pop_set, ind_pops[i]);
+			if(kh_value(pop_set, k) > 0) { continue; }  // don't add populations which were found
+			struct str_node* sn = (struct str_node*)malloc(sizeof(struct str_node));
+			sn->str = strdup(ind_pops[i]);
+			TAILQ_INSERT_TAIL(head_nopop, sn, nodes);
+		}
+	}
+	// destroy set
+	kh_destroy(ID_MAP_STR, pop_set);
+}
+
 short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head) {
 	// get length
 	size_t length = 0;
