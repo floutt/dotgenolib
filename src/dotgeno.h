@@ -264,6 +264,12 @@ void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, s
 // DOCUMENT THIS DOCUMENT THIS DOCUMENT THIS
 void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struct idx_head* head_idx, struct str_list_head* head_nopop);
 
+// NEED DOCUMENTATION
+void get_multiple_chrs(snp_data* snp_info, char** chrs, size_t length, struct idx_head* head_idx);
+
+// NEED DOCUMENTATION
+void get_multiple_ranges(snp_data* snp_info, char** chrs, uint64_t* start_positions, uint64_t* end_positions, size_t length, struct idx_head* head_idx);
+
 /**
  * @brief filters snp_data object to only those elements found in the provided list
  *
