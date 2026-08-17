@@ -374,6 +374,51 @@ void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struc
 	kh_destroy(ID_MAP_STR, pop_set);
 }
 
+void get_multiple_chrs(snp_data* snp_info, char** chrs, size_t length, struct idx_head* head_idx) {
+	// iterate through the snp object
+	for(size_t i = 0; i < snp_info->length; i++) {
+		char* chr = snp_info->chr[i];
+		bool keep_snp = false;
+		for(size_t j = 0; j < length; j++) {
+			char*  chr_cmp = chrs[j];
+			if(chr_cmp == NULL) {
+				fprintf(stderr, "Error: chromosome can't be NULL when filtering snp data by range.\n");
+				exit(EXIT_FAILURE);
+			}
+			keep_snp = keep_snp || (strcmp(chr, chr_cmp) == 0);
+		}
+		if(keep_snp) {
+			struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
+			idn->idx = i;
+			TAILQ_INSERT_TAIL(head_idx, idn, nodes);
+		}
+	}
+}
+
+void get_multiple_ranges(snp_data* snp_info, char** chrs, uint64_t* start_positions, uint64_t* end_positions, size_t length, struct idx_head* head_idx) {
+	// iterate through the snp object
+	for(size_t i = 0; i < snp_info->length; i++) {
+		char* chr = snp_info->chr[i];
+		uint64_t pos = snp_info->pos[i];
+		bool keep_snp = false;
+		for(size_t j = 0; j < length; j++) {
+			char*  chr_cmp = chrs[j];
+			uint64_t start = start_positions[j];
+			uint64_t end = end_positions[j];
+			if(chr_cmp == NULL) {
+				fprintf(stderr, "Error: chromosome can't be NULL when filtering snp data by range.\n");
+				exit(EXIT_FAILURE);
+			}
+			keep_snp = keep_snp || ((strcmp(chr, chr_cmp) == 0) && (pos >= start) && (pos <= end));
+		}
+		if(keep_snp) {
+			struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
+			idn->idx = i;
+			TAILQ_INSERT_TAIL(head_idx, idn, nodes);
+		}
+	}
+}
+
 short filter_snp_data(snp_data* snp_in, snp_data* snp_out, struct idx_head* head) {
 	// get length
 	size_t length = 0;
