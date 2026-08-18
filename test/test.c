@@ -212,6 +212,131 @@ void test_snp_filtered_hash(void) {
 	free(buf);
 }
 
+void test_pop_filtered_hash(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/hash_test/filtered/pop", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char ind_file[37];
+		uint32_t exp_hash;
+		char pop_list[1000];
+		sscanf(buf, "%s\t%s\t%x\n", ind_file, pop_list, &exp_hash);
+		ind_data ind_info = read_ind_file(ind_file);
+		
+		// init pop array
+		// get number of elements
+		size_t n_elems = 1;
+		int len = strlen(pop_list);
+		for(int i = 0; i < len; i++) {
+			if(pop_list[i] == ',') { n_elems++; }
+		}
+		char** pops = (char**)malloc(n_elems * sizeof(char*));
+		char* token = strtok(pop_list, ",");
+		pops[0] = token;
+		size_t cur_i = 1;
+		while (token != NULL) {
+			token = strtok(NULL, ",");
+			if(token) {
+				pops[cur_i] = token;
+				cur_i++;
+			}	
+		}
+
+		struct idx_head head_idx;
+		TAILQ_INIT(&head_idx);
+		get_multiple_pops(&ind_info, pops, n_elems, &head_idx, NULL);
+
+		ind_data ind_filt;
+		short ret = filter_ind_data(&ind_info, &ind_filt, &head_idx);
+		if(ret == -1) { TEST_FAIL(); }
+		TEST_ASSERT_EQUAL_UINT32(exp_hash, ind_filt.hash);
+		free_ind_data(&ind_info);
+		free_ind_data(&ind_filt);
+		free(pops);
+		free_idx_list(&head_idx);
+	}
+	free(buf);
+}
+
+void test_chr_filtered_hash(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/hash_test/filtered/chr", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char snp_file[37];
+		uint32_t exp_hash;
+		char chr_list[1000];
+		sscanf(buf, "%s\t%s\t%x\n", snp_file, chr_list, &exp_hash);
+		snp_data snp_info = read_snp_file(snp_file);
+		
+		// init chr array
+		// get number of elements
+		size_t n_elems = 1;
+		int len = strlen(chr_list);
+		for(int i = 0; i < len; i++) {
+			if(chr_list[i] == ',') { n_elems++; }
+		}
+		char** chrs = (char**)malloc(n_elems * sizeof(char*));
+		char* token = strtok(chr_list, ",");
+		chrs[0] = token;
+		size_t cur_i = 1;
+		while (token != NULL) {
+			token = strtok(NULL, ",");
+			if(token) {
+				chrs[cur_i] = token;
+				cur_i++;
+			}	
+		}
+		struct idx_head head_idx;
+		TAILQ_INIT(&head_idx);
+		get_multiple_chrs(&snp_info, chrs, n_elems, &head_idx);
+
+		snp_data snp_filt;
+		short ret = filter_snp_data(&snp_info, &snp_filt, &head_idx);
+		if(ret == -1) { TEST_FAIL(); }
+		TEST_ASSERT_EQUAL_UINT32(exp_hash, snp_filt.hash);
+		free_snp_data(&snp_info);
+		free_snp_data(&snp_filt);
+		free(chrs);
+		free_idx_list(&head_idx);
+	}
+	free(buf);
+}
+
+void test_range_filtered_hash(void) {
+	char* buf = NULL;
+	size_t bufsize = 0;
+	FILE* fp = fopen("test/data/hash_test/filtered/range", "r");
+	while(getline(&buf, &bufsize, fp) != -1) {
+		char snp_file[37];
+		char chr[3];
+		uint32_t exp_hash;
+		uint64_t start;
+		uint64_t end;
+		sscanf(buf, "%s\t%s\t%zu\t%zu\t%x\n", snp_file, chr, &start, &end, &exp_hash);
+		snp_data snp_info = read_snp_file(snp_file);
+		char* chrs[1];
+		uint64_t starts[1];
+		uint64_t ends[1];
+		chrs[0] = chr;
+		starts[0] = start;
+		ends[0] = end;
+
+		struct idx_head head_idx;
+		TAILQ_INIT(&head_idx);
+		get_multiple_ranges(&snp_info, chrs, starts, ends, 1, &head_idx);
+
+		snp_data snp_filt;
+		short ret = filter_snp_data(&snp_info, &snp_filt, &head_idx);
+		if(ret == -1) { TEST_FAIL(); }
+		TEST_ASSERT_EQUAL_UINT32(exp_hash, snp_filt.hash);
+		free_snp_data(&snp_info);
+		free_snp_data(&snp_filt);
+		free_idx_list(&head_idx);
+	}
+	free(buf);
+}
+
 void test_read_write_eqv_pam(void) {
 	char* file_base = "test/data/PAM_EGN/pam_example_%i.%s";
 	char buf[38];
@@ -620,12 +745,15 @@ int main(void) {
 	RUN_TEST(test_snp_filtered_hash);
 	RUN_TEST(test_read_write_eqv_pam);
 	RUN_TEST(test_read_write_eqv_egn);
+	RUN_TEST(test_intersect_snp);
 	RUN_TEST(test_get_idx_snp);
 	RUN_TEST(test_get_idx_ind);
 	RUN_TEST(test_multiple_index_snp);
 	RUN_TEST(test_multiple_index_ind);
 	RUN_TEST(test_multiple_index_in_ind_file);
 	RUN_TEST(test_append_ind);
-	test_intersect_snp();
+	RUN_TEST(test_pop_filtered_hash);
+	RUN_TEST(test_chr_filtered_hash);
+	RUN_TEST(test_range_filtered_hash);
     return UNITY_END();
 }
