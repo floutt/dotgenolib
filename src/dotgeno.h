@@ -260,14 +260,43 @@ void get_multiple_snp_idx(snp_data* snp_info, char** var_names, size_t length, s
  */
 void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, size_t length, struct idx_head* head_idx, struct ind_idx_head* head_iidx);
 
-
-// DOCUMENT THIS DOCUMENT THIS DOCUMENT THIS
+/**
+ * @brief returns the numerical indices for individuals who are a member of the populations in the ind_pop array
+ * 
+ * This function will only return indices for elements of individuals found in the ind_data object
+ *
+ * @param[in] ind_info ind_data object to be queried
+ * @param[in] ind_pops array of strings representing the individuals' respective populations 
+ * @param[in] length length of the ind_pops array
+ * @param[out] head_idx head of the index linked list where indexes will be stored
+ * @param[out] head_nopop head of linked list where populations not found in ind_info will be stored. Set to NULL if you don't want to store this information
+ */
 void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struct idx_head* head_idx, struct str_list_head* head_nopop);
 
-// NEED DOCUMENTATION
+/**
+ * @brief returns the numerical indices of genetic variants which are in certain chromosomes
+ * 
+ * This function will only return indices for elements of individuals found in the snp_data object
+ *
+ * @param[in] snp_info snp_data object to be queried
+ * @param[in] chrs array of strings representing the chromosome IDs
+ * @param[in] length length of the chrs array
+ * @param[out] head_idx head of the index linked list where indexes will be stored
+ */
 void get_multiple_chrs(snp_data* snp_info, char** chrs, size_t length, struct idx_head* head_idx);
 
-// NEED DOCUMENTATION
+/**
+ * @brief returns the numerical indices of genetic variants which are within certain ranges
+ * 
+ * This function will only return indices for elements of individuals found in the snp_data object
+ *
+ * @param[in] snp_info snp_data object to be queried
+ * @param[in] chrs array of strings representing the chromosome IDs
+ * @param[in] start_positions array of integers representing the start position (inclusive)
+ * @param[in] end_positions array of integers representing the end position (inclusive)
+ * @param[in] length length of the chrs, start_positions, and end_positions arrays
+ * @param[out] head_idx head of the index linked list where indexes will be stored
+ */
 void get_multiple_ranges(snp_data* snp_info, char** chrs, uint64_t* start_positions, uint64_t* end_positions, size_t length, struct idx_head* head_idx);
 
 /**
