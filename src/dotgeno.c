@@ -32,6 +32,8 @@
 #define RECORD_ELEMS_PER_BYTE 4
 #define RECORD_ELEMS_MASK_BASE 3
 
+#define PAM_MIN_HEADER_SIZE 48
+
 /* hash table stuff */
 /**
  *  @brief Hash function for ind_idx for use with khash.h, based on the djb2 hash function
@@ -762,6 +764,7 @@ void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_in
 		exit(EXIT_FAILURE);
 	}
 	size_t record_size = MAX(num_chars, (int)ceil((float)(pfw->n_ind * RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE));
+	record_size = MAX(record_size, PAM_MIN_HEADER_SIZE);
   	size_t n_trailing_bytes_hdr	= record_size - num_chars;
 	for(size_t i = 0; i < n_trailing_bytes_hdr; i++) {
 		int ret = fputc('\0', pfw->fp);
