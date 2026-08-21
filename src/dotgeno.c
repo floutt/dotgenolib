@@ -32,7 +32,7 @@
 #define RECORD_ELEMS_PER_BYTE 4
 #define RECORD_ELEMS_MASK_BASE 3
 
-#define PAM_MIN_HEADER_SIZE 48
+#define MIN_HEADER_SIZE 48
 
 /* hash table stuff */
 /**
@@ -543,7 +543,7 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out) {
 	ind_out->rev_idx->map = kh_init(ID_MAP_IND);
 	for(size_t idx = 0; idx < ind_out->length; idx++) {
 		// copy ind1
-		if((idx >= 0) && (idx < ind1->length)) {
+		if(idx < ind1->length) {
 			ind_out->ind_id[idx] = strdup(ind1->ind_id[idx]);
 			ind_out->sex[idx] = strdup(ind1->sex[idx]);
 			ind_out->population[idx] = strdup(ind1->population[idx]);
@@ -586,6 +586,23 @@ pam_file_reader pam_file_reader_init(char* filename, snp_data* snp_info, ind_dat
 	return pf;
 }
 
+tgn_file_reader tgn_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
+	tgn_file_reader tf;
+	size_t file_size = get_filesize(filename);
+	tf.is_hdr_read = false;
+	tf.is_open = true;
+	tf.idx = 0;
+	tf.n_ind = ind_info->length;
+	tf.n_snp = snp_info->length;
+	tf.record_size = (file_size - MIN_HEADER_SIZE) / ind_info->length;
+	if (((tf.record_size * ind_info->length) + MIN_HEADER_SIZE) != file_size) {
+		fprintf(stderr, "Invalid TGENO file. File size is different from expectation!\n");
+		exit(EXIT_FAILURE);
+	}
+	tf.fp = safe_read(filename, "rb");
+	return tf;
+}
+
 egn_file_reader egn_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	egn_file_reader ef;
 	ef.is_open = true;
@@ -606,6 +623,11 @@ int close_pam_file_reader(pam_file_reader* pf) {
 	return fclose(pf->fp);
 }
 
+int close_tgn_file_reader(tgn_file_reader* tf) {
+	tf->is_open = false;
+	return fclose(tf->fp);
+}
+
 int close_egn_file_reader(egn_file_reader* ef) {
 	ef->is_open = false;
 	return fclose(ef->fp);
@@ -614,6 +636,11 @@ int close_egn_file_reader(egn_file_reader* ef) {
 int close_pam_file_writer(pam_file_writer* pfw) {
 	pfw->is_open = false;
 	return fclose(pfw->fp);
+}
+
+int close_tgn_file_writer(tgn_file_writer* tfw) {
+	tfw->is_open = false;
+	return fclose(tfw->fp);
 }
 
 int close_egn_file_writer(egn_file_writer* efw) {
@@ -636,6 +663,24 @@ hdr_data read_pam_header(pam_file_reader* pf) {
 	sscanf(hdr, "GENO   %zu %zu %x %x", &hdr_info.n_ind, &hdr_info.n_snp, &hdr_info.ind_hash, &hdr_info.snp_hash);
 	free(hdr);
 	pf->is_hdr_read = true;
+	return hdr_info;
+}
+
+hdr_data read_tgn_header(tgn_file_reader* tf) {
+	if(tf->is_hdr_read) {
+		fprintf(stderr, "Header already read!");
+		exit(EXIT_FAILURE);
+	}
+	if(!tf->is_open) {
+		fprintf(stderr, "ERROR: pam_file_reader has been closed.\n");
+		exit(EXIT_FAILURE);
+	}
+	hdr_data hdr_info;
+	char* hdr = (char*) malloc(sizeof(char) * MIN_HEADER_SIZE);
+	fread(hdr, 1, MIN_HEADER_SIZE, tf->fp);
+	sscanf(hdr, "TGENO   %zu %zu %x %x", &hdr_info.n_ind, &hdr_info.n_snp, &hdr_info.ind_hash, &hdr_info.snp_hash);
+	free(hdr);
+	tf->is_hdr_read = true;
 	return hdr_info;
 }
 
@@ -664,6 +709,34 @@ uint8_t* read_pam_record(pam_file_reader* pf) {
 	}
 	pf->idx += 1;
 	fseek(pf->fp, num_leftover_bytes, SEEK_CUR);  // skip useless bytes
+	return record;
+}
+
+uint8_t* read_tgn_record(tgn_file_reader* tf) {
+	if(!tf->is_hdr_read) {
+		fprintf(stderr, "Header must be read before reading records!\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!tf->is_open) {
+		fprintf(stderr, "ERROR: tgn_file_reader has been closed.\n");
+		exit(EXIT_FAILURE);
+	}
+	if(tf->idx == tf->n_ind) {
+		return NULL;
+	}
+	uint8_t* record = (uint8_t*)malloc(tf->n_snp * sizeof(uint8_t));
+	size_t num_leftover_bytes = tf->record_size - (int)ceil((float)(tf->n_snp*RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
+	uint8_t record_byte;
+	for(size_t i = 0; i < tf->n_snp; i++) {
+		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE;
+		uint8_t shift_by = (BITS_IN_BYTE-RECORD_ELEM_SIZE_BITS) - (RECORD_ELEM_SIZE_BITS*elem_pos);
+		if(elem_pos == 0) {
+			record_byte = getc(tf->fp);
+		}
+		record[i] = (record_byte & (RECORD_ELEMS_MASK_BASE << shift_by)) >> shift_by;
+	}
+	tf->idx += 1;
+	fseek(tf->fp, num_leftover_bytes, SEEK_CUR);  // skip useless bytes
 	return record;
 }
 
@@ -728,6 +801,24 @@ short goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name) {
 	return ret;
 }
 
+short goto_ind_tgn(tgn_file_reader* tf, ind_data* ind_info, char* ind_id, char* ind_pop) {
+	if(!tf->is_open) {
+		fprintf(stderr, "ERROR: tgn_file_reader closed.\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!tf->is_hdr_read) {
+		fprintf(stderr, "ERROR: header must be read before going to variant.\n");
+		exit(EXIT_FAILURE);	
+	}
+	size_t idx_go;
+	short ret = get_ind_idx(ind_info, ind_id, ind_pop, &idx_go);
+	if(ret == 0) {
+		fseek(tf->fp, (idx_go + 1) * (tf->record_size), SEEK_SET);
+		tf->idx = idx_go;
+	}
+	return ret;
+}
+
 pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
 	pam_file_writer pfw;
 	pfw.hdr_written = false;
@@ -737,6 +828,17 @@ pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_dat
 	pfw.n_written_snp = 0;
 	pfw.fp = safe_read(filename, "wb+");
 	return pfw;
+}
+
+tgn_file_writer tgn_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
+	tgn_file_writer tfw;
+	tfw.hdr_written = false;
+	tfw.is_open = true;
+	tfw.n_snp = snp_info->length;
+	tfw.n_ind = ind_info->length;
+	tfw.n_written_ind = 0;
+	tfw.fp = safe_read(filename, "wb+");
+	return tfw;
 }
 
 egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info) {
@@ -764,7 +866,7 @@ void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_in
 		exit(EXIT_FAILURE);
 	}
 	size_t record_size = MAX(num_chars, (int)ceil((float)(pfw->n_ind * RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE));
-	record_size = MAX(record_size, PAM_MIN_HEADER_SIZE);
+	record_size = MAX(record_size, MIN_HEADER_SIZE);
   	size_t n_trailing_bytes_hdr	= record_size - num_chars;
 	for(size_t i = 0; i < n_trailing_bytes_hdr; i++) {
 		int ret = fputc('\0', pfw->fp);
@@ -775,6 +877,34 @@ void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_in
 	}
 	pfw->hdr_written = true;
 	pfw->record_size = record_size;
+}
+
+void write_tgn_header(tgn_file_writer* tfw, snp_data* snp_info, ind_data* ind_info) {
+	if(tfw->hdr_written) {
+		fprintf(stderr, "ERROR: tgn_file_writer object header has already been written!\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!tfw->is_open) {
+		fprintf(stderr, "ERROR: TGENO file is closed!\n");
+		exit(EXIT_FAILURE);
+	}
+	int num_chars = fprintf(tfw->fp, "TGENO   %zu %zu %x %x", tfw->n_ind, tfw->n_snp, ind_info->hash, snp_info->hash);
+	if(num_chars < 0) {
+		fprintf(stderr, "ERROR: unsuccessful write to TGENO file.\n");
+		exit(EXIT_FAILURE);
+	}
+	size_t record_size = MAX(num_chars, (int)ceil((float)(tfw->n_snp * RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE));
+	record_size = MAX(record_size, MIN_HEADER_SIZE);
+  	size_t n_trailing_bytes_hdr	= MIN_HEADER_SIZE - num_chars;
+	for(size_t i = 0; i < n_trailing_bytes_hdr; i++) {
+		int ret = fputc('\0', tfw->fp);
+		if(ret == EOF) {
+			fprintf(stderr, "ERROR: unsuccessful write to TGENO file.\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	tfw->hdr_written = true;
+	tfw->record_size = record_size;
 }
 
 void write_pam_record(pam_file_writer* pfw, uint8_t* dosages) {
@@ -821,6 +951,52 @@ void write_pam_record(pam_file_writer* pfw, uint8_t* dosages) {
 		}
 	}
 	pfw->n_written_snp += 1;
+}
+
+void write_tgn_record(tgn_file_writer* tfw, uint8_t* dosages) {
+	if(!tfw->hdr_written) {
+		fprintf(stderr, "ERROR: header has not been written for TGENO file!\n");
+		exit(EXIT_FAILURE);
+	}
+	if(!tfw->is_open) {
+		fprintf(stderr, "ERROR: TGENO file is closed!\n");
+		exit(EXIT_FAILURE);
+	}
+	if(tfw->n_written_ind >= tfw->n_ind) {
+		fprintf(stderr, "ERROR: Cannot write to TGENO file. All SNP records have been written.\n");
+		exit(EXIT_FAILURE);
+	}
+	uint8_t record_byte = 0;
+	for(size_t i = 0; i < tfw->n_snp; i++) {
+		if((i != 0) && ((i%(BITS_IN_BYTE/RECORD_ELEM_SIZE_BITS)) == 0)) {
+			int ret = fputc(record_byte, tfw->fp);
+			if(ret == EOF) {
+				fprintf(stderr, "ERROR: unsuccessful write to TGENO file.\n");
+				exit(EXIT_FAILURE);
+			}
+			record_byte = 0;
+		}
+		uint8_t elem_pos = i%RECORD_ELEMS_PER_BYTE;
+		uint8_t shift_by = (BITS_IN_BYTE-RECORD_ELEM_SIZE_BITS) - (RECORD_ELEM_SIZE_BITS*elem_pos);
+		record_byte = record_byte | ((RECORD_ELEMS_MASK_BASE << shift_by) & (dosages[i] << shift_by));
+	}
+
+	int ret = fputc(record_byte, tfw->fp);
+	if(ret == EOF) {
+		fprintf(stderr, "ERROR: unsuccessful write to TGENO file.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	size_t n_trailing_bytes = tfw->record_size - (int)ceil((float)(tfw->n_snp * RECORD_ELEM_SIZE_BITS) / BITS_IN_BYTE);
+	// write trailing bytes
+	for(size_t i = 0; i < n_trailing_bytes; i++) {
+		int ret = fputc('\0', tfw->fp);
+		if(ret == EOF) {
+			fprintf(stderr, "ERROR: unsuccessful write to TGENO file.\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	tfw->n_written_ind += 1;
 }
 
 void write_egn_record(egn_file_writer* efw, uint8_t* dosages) {
