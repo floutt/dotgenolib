@@ -813,7 +813,7 @@ short goto_ind_tgn(tgn_file_reader* tf, ind_data* ind_info, char* ind_id, char* 
 	size_t idx_go;
 	short ret = get_ind_idx(ind_info, ind_id, ind_pop, &idx_go);
 	if(ret == 0) {
-		fseek(tf->fp, (idx_go + 1) * (tf->record_size), SEEK_SET);
+		fseek(tf->fp, MIN_HEADER_SIZE + (idx_go * (tf->record_size)), SEEK_SET);
 		tf->idx = idx_go;
 	}
 	return ret;
