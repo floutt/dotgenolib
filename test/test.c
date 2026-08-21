@@ -12,7 +12,6 @@ void tearDown(void) {
 	remove("/tmp/tmppam.geno");
 	remove("/tmp/tmpegn.geno");
 	remove("/tmp/tmptgn.tgeno");
-
 }
 
 size_t get_random_index(size_t length) {
