@@ -11,6 +11,8 @@ void setUp(void) { }
 void tearDown(void) {
 	remove("/tmp/tmppam.geno");
 	remove("/tmp/tmpegn.geno");
+	remove("/tmp/tmptgn.tgeno");
+
 }
 
 size_t get_random_index(size_t length) {
@@ -393,6 +395,62 @@ void test_read_write_eqv_pam(void) {
 	}
 }
 
+void test_read_write_eqv_tgn(void) {
+	char* file_base = "test/data/TGN/tgn_example_%i.%s";
+	char buf[38];
+    int n_sets = 20;
+	for(int i = 1; i <= n_sets; i++) {
+		sprintf(buf, file_base, i, "snp");
+		snp_data snp_info = read_snp_file(buf);
+		sprintf(buf, file_base, i, "ind");
+		ind_data ind_info = read_ind_file(buf);
+		sprintf(buf, file_base, i, "tgeno");
+		tgn_file_reader tfr = tgn_file_reader_init(buf, &snp_info, &ind_info);
+		read_tgn_header(&tfr);
+
+		tgn_file_writer tfw = tgn_file_writer_init("/tmp/tmptgn.tgeno", &snp_info, &ind_info);
+		write_tgn_header(&tfw, &snp_info, &ind_info);
+
+		uint8_t* record;
+		while(record = read_tgn_record(&tfr)) {
+			write_tgn_record(&tfw, record);
+			free(record);
+		}
+		TEST_ASSERT_EQUAL_INT(tfr.n_ind, tfw.n_written_ind);
+		close_tgn_file_writer(&tfw);
+		close_tgn_file_reader(&tfr);
+
+		tgn_file_reader tfr_in = tgn_file_reader_init(buf, &snp_info, &ind_info);
+		tgn_file_reader tfr_out = tgn_file_reader_init("/tmp/tmptgn.tgeno", &snp_info, &ind_info);
+		TEST_ASSERT_EQUAL_INT(tfr_in.n_snp, tfr_out.n_snp);
+		TEST_ASSERT_EQUAL_INT(tfr_in.n_ind, tfr_out.n_ind);
+		
+		hdr_data hdr1 = read_tgn_header(&tfr_in);
+		hdr_data hdr2 = read_tgn_header(&tfr_out);
+		TEST_ASSERT_EQUAL_INT(hdr1.n_ind, hdr2.n_ind);
+		TEST_ASSERT_EQUAL_INT(hdr1.n_snp, hdr2.n_snp);
+		TEST_ASSERT_EQUAL_UINT32(hdr1.ind_hash, hdr2.ind_hash);
+		TEST_ASSERT_EQUAL_UINT32(hdr1.snp_hash, hdr2.snp_hash);
+		uint8_t* record1;
+		uint8_t* record2;
+		while(1) {
+			record1 = read_tgn_record(&tfr_in);
+			record2 = read_tgn_record(&tfr_out);
+			if(record1 == NULL) {
+				if(record2) {
+					TEST_FAIL();
+				}
+				break;
+			}
+			TEST_ASSERT_EQUAL_UINT8_ARRAY(record1, record2, snp_info.length);
+			free(record1);
+			free(record2);
+		}
+		free_snp_data(&snp_info);
+		free_ind_data(&ind_info);
+	}
+}
+
 void test_read_write_eqv_egn(void) {
 	char* file_base = "test/data/PAM_EGN/egn_example_%i.%s";
 	char buf[38];
@@ -744,6 +802,7 @@ int main(void) {
 	RUN_TEST(test_ind_filtered_hash);
 	RUN_TEST(test_snp_filtered_hash);
 	RUN_TEST(test_read_write_eqv_pam);
+	RUN_TEST(test_read_write_eqv_tgn);
 	RUN_TEST(test_read_write_eqv_egn);
 	RUN_TEST(test_intersect_snp);
 	RUN_TEST(test_get_idx_snp);
