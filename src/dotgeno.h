@@ -101,6 +101,19 @@ typedef struct {
 } pam_file_reader;
 
 /*! @typedef
+ * @brief struct containing information necessary to read TGENO files
+ */
+typedef struct {
+	bool is_hdr_read; /**< Whether the header of the TGENO file has been read */
+	bool is_open; /**< Whether the TGENO file has been opened */
+	size_t idx; /**< Index of the current record being iterated */
+	size_t record_size; /**< Size of each TGENO record */
+	size_t n_ind; /**< Number of individuals in the file */
+	size_t n_snp; /**< Number of genetic variants in the file */
+	FILE* fp;  /**< File pointer to TGENO file */ 
+} tgn_file_reader;
+
+/*! @typedef
  * @brief struct containing information necessary to read EIGENSTRAT files
  */
 typedef struct {
@@ -122,6 +135,16 @@ typedef struct {
 } pam_file_writer;
 
 typedef struct {
+	bool hdr_written; /**< Whether the header of the TGENO file has been written */
+	bool is_open; /**< Whether the TGENO file has been opened */
+	size_t n_ind; /**< Number of individuals to write in the file */ 
+	size_t n_snp; /**< Number of genetic variants to write in the file */ 
+	size_t n_written_ind; /**< Number of individuals written to the file */
+	size_t record_size; /**< Size of each TGENO record */
+	FILE* fp; /**< File pointer to TGENO file */
+} tgn_file_writer;
+
+typedef struct {
 	bool is_open; /**< Whether the EIGENSTRAT file has been opened */
 	size_t n_ind; /**< Number of individuals to write in the file */ 
 	size_t n_snp; /**< Number of genetic variants to write in the file */
@@ -139,12 +162,29 @@ typedef struct {
 void write_pam_header(pam_file_writer* pfw, snp_data* snp_info, ind_data* ind_info);
 
 /**
+ * @brief writes the header record of TGENO file
+ *
+ * @param[out] tfw tgn_file_writer object to write header to
+ * @param[in] snp_info corresponding variant information for tfw
+ * @param[in] ind_info corresponding individual information for tfw
+ */
+void write_tgn_header(tgn_file_writer* tfw, snp_data* snp_info, ind_data* ind_info);
+
+/**
  * @brief writes variant record to PACKEDANCESTRYMAP file 
  *
  * @param[out] pfw pam_file_writer object to write record to
  * @param[in] dosages array of dosages. Should be of length pfw->n_ind
  */
 void write_pam_record(pam_file_writer* pfw, uint8_t* dosages);
+
+/**
+ * @brief writes individual record to TGENO file 
+ *
+ * @param[out] tfw tgn_file_writer object to write record to
+ * @param[in] dosages array of dosages. Should be of length tfw->n_snp
+ */
+void write_tgn_record(tgn_file_writer* tfw, uint8_t* dosages);
 
 /**
  * @brief writes variant record to EIGENSTRAT file 
@@ -155,7 +195,7 @@ void write_pam_record(pam_file_writer* pfw, uint8_t* dosages);
 void write_egn_record(egn_file_writer* efw, uint8_t* dosages);
 
 /*! @typedef
- * @brief struct containing information encoded in PACKEDANCESTRYMAP file headers
+ * @brief struct containing information encoded in PACKEDANCESTRYMAP and TGENO file headers
  */
 typedef struct {
 	size_t n_ind; /**< Number of individuals in the file */
@@ -358,6 +398,17 @@ void append_ind_data(ind_data* ind1, ind_data* ind2, ind_data* ind_out);
 pam_file_reader pam_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
+ * @brief opens TGENO file and initializes reader
+ *
+ * @param[in] filename path to TGENO file
+ * @param[in] snp_info pointer to corresponding snp_data object
+ * @param[in] ind_info pointer to corresponding ind_data object
+ *
+ * @return object with file pointer and information necessary to read TGENO file 
+ */
+tgn_file_reader tgn_file_reader_init(char* filename, snp_data* snp_info, ind_data* ind_info);
+
+/**
  * @brief opens EIGENSTRAT file and initializes reader
  *
  * @param[in] filename path to EIGENSTRAT file
@@ -378,6 +429,17 @@ egn_file_reader egn_file_reader_init(char* filename, snp_data* snp_info, ind_dat
  * @return object with file pointer and information necessary to read PACKEDANCESTRYMAP file 
  */
 pam_file_writer pam_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
+
+/**
+ * @brief initializes TGENO file writer
+ *
+ * @param[in] filename path to TGENO file
+ * @param[in] snp_info pointer to corresponding snp_data object
+ * @param[in] ind_info pointer to corresponding ind_data object
+ *
+ * @return object with file pointer and information necessary to read TGENO file 
+ */
+tgn_file_writer tgn_file_writer_init(char* filename, snp_data* snp_info, ind_data* ind_info);
 
 /**
  * @brief initializes EIGENSTRAT file writer
@@ -402,6 +464,17 @@ egn_file_writer egn_file_writer_init(char* filename, snp_data* snp_info, ind_dat
 int close_pam_file_reader(pam_file_reader* pf);
 
 /**
+ * @brief closes tgn_file_reader object
+ *
+ * @param[in,out] tf pointer to tgn_file_reader object
+ *
+ * @return status code indicating whether or not the file was successfully closed
+ * @retval 0 file successfully closed
+ * @retval EOF file not successfully closed
+ */
+int close_tgn_file_reader(tgn_file_reader* tf);
+
+/**
  * @brief closes egn_file_reader object
  *
  * @param[in,out] ef pointer to egn_file_reader object
@@ -424,6 +497,17 @@ int close_egn_file_reader(egn_file_reader* ef);
 int close_pam_file_writer(pam_file_writer* pfw);
 
 /**
+ * @brief closes tgn_file_writer object
+ *
+ * @param[in,out] tfw pointer to tgn_file_writer object
+ *
+ * @return status code indicating whether or not the file was successfully closed
+ * @retval 0 file successfully closed
+ * @retval EOF file not successfully closed
+ */
+int close_tgn_file_writer(tgn_file_writer* tfw);
+
+/**
  * @brief closes egn_file_writer object
  *
  * @param[in,out] efw pointer to egn_file_writer object
@@ -435,7 +519,7 @@ int close_pam_file_writer(pam_file_writer* pfw);
 int close_egn_file_writer(egn_file_writer* efw);
 
 /**
- * @brief reads header record of PACKEDANCESTRY map file.
+ * @brief reads header record of PACKEDANCESTRYMAP file.
  * This must be read before any other record is read
  *
  * @param[in,out] pf pointer to pam_file_reader object 
@@ -445,13 +529,32 @@ int close_egn_file_writer(egn_file_writer* efw);
 hdr_data read_pam_header(pam_file_reader* pf);
 
 /**
+ * @brief reads header record of TGENO file.
+ * This must be read before any other record is read
+ *
+ * @param[in,out] tf pointer to pam_file_reader object 
+ *
+ * @return hdr_data object containing important header information
+ */
+hdr_data read_tgn_header(tgn_file_reader* tf);
+
+/**
  * @brief reads record of dosages of the current genetic variant from pam_file_reader object and iterates to the next one
  *
  * @param[in,out] pf pointer to pam_file_reader object
  *
- * @return array of allelic dosages of length pf->length or NULL pointer once all records have been read. Dosages must be either 0,1,2, or NAN_VAL.
+ * @return array of allelic dosages of length pf->n_ind or NULL pointer once all records have been read. Dosages must be either 0,1,2, or NAN_VAL.
  */
 uint8_t* read_pam_record(pam_file_reader* pf);
+
+/**
+ * @brief reads record of dosages of the current individual from tgn_file_reader object and iterates to the next one
+ *
+ * @param[in,out] tf pointer to tgn_file_reader object
+ *
+ * @return array of allelic dosages of length tf->n_snp or NULL pointer once all records have been read. Dosages must be either 0,1,2, or NAN_VAL.
+ */
+uint8_t* read_tgn_record(tgn_file_reader* tf);
 
 /**
  * @brief reads record of dosages of the current genetic variant from egn_file_reader object and iterates to the next one
@@ -485,6 +588,19 @@ short goto_var_egn(egn_file_reader* ef, snp_data* snp_info, char* var_name);
  * @retval 0 successful relocation to variant var_name
  */
 short goto_var_pam(pam_file_reader* pf, snp_data* snp_info, char* var_name);
+
+/**
+ * @brief sends tgn_file_reader object to the location of a particular individual
+ *
+ * @param[in,out] tf pointer to tgn_file_reader object
+ * @param[in] ind_info pointer to corresponding ind_data object
+ * @param[in] ind_id intrapopulation identifier for individual
+ * @param[in] ind_pop population of individual
+ * @return status code indicating whether or not tgn_file_reader was relocated to individual's row
+ * @retval -1 variant not found
+ * @retval 0 successful relocation to variant var_name
+ */
+short goto_ind_tgn(tgn_file_reader* tf, ind_data* ind_info, char* ind_id, char* ind_pop);
 
 /**
  * @brief frees snp_data object
