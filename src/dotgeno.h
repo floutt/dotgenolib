@@ -314,6 +314,17 @@ void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, s
 void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struct idx_head* head_idx, struct str_list_head* head_nopop);
 
 /**
+ * @brief returns the numerical indices for individuals who are of a certain sex
+ * 
+ * This function will only return indices for elements of individuals found in the ind_data object
+ *
+ * @param[in] ind_info ind_data object to be queried
+ * @param[in] sex string indicating the sex to be selected 
+ * @param[out] head_idx head of the index linked list where indexes will be stored
+ */
+void get_multiple_sex(ind_data* ind_info, char* sex, struct idx_head* head_idx);
+
+/**
  * @brief returns the numerical indices of genetic variants which are in certain chromosomes
  * 
  * This function will only return indices for elements of individuals found in the snp_data object
