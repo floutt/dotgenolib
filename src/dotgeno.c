@@ -333,7 +333,6 @@ void get_multiple_ind_idx(ind_data* ind_info, char** ind_ids, char** ind_pops, s
 	}
 }
 
-// TEST THIS
 void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struct idx_head* head_idx, struct str_list_head* head_nopop) {
 	// make population set
 	khash_t(ID_MAP_STR)* pop_set = kh_init(ID_MAP_STR);
@@ -374,6 +373,16 @@ void get_multiple_pops(ind_data* ind_info, char** ind_pops, size_t length, struc
 	}
 	// destroy set
 	kh_destroy(ID_MAP_STR, pop_set);
+}
+
+void get_multiple_sex(ind_data* ind_info, char* sex, struct idx_head* head_idx) {
+	for(size_t i = 0; i < ind_info->length; i++) {
+		if(strcmp(ind_info->sex[i], sex) != 0) { continue; };
+		// add struct if individual is of the provided sex
+		struct idx_node* idn = (struct idx_node*)malloc(sizeof(struct idx_node));
+		idn->idx = i;
+		TAILQ_INSERT_TAIL(head_idx, idn, nodes);
+	}
 }
 
 void get_multiple_chrs(snp_data* snp_info, char** chrs, size_t length, struct idx_head* head_idx) {
