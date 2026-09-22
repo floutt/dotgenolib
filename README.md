@@ -1,6 +1,6 @@
 # dotgenolib
 
-`dotgenolib` is a fast, minimalist C library for reading and writing PACKEDANCESTRYMAP and EIGENSTRAT files.
+`dotgenolib` is a fast, minimalist C library for reading and writing PACKEDANCESTRYMAP, EIGENSTRAT, and TGENO files.
 
 ## Installation
 Installation of this software is straightforward. No external dependencies dependencies are required outside of the C standard library and POSIX standard. Simply run the following commands:
